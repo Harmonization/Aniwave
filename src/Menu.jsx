@@ -4,7 +4,7 @@ import Classification from './modes/Classification.jsx'
 import Clusterization from './modes/Clusterization.jsx'
 import Extract from './modes/Extract.jsx'
 
-const token = import.meta.env.TOKEN
+const token = import.meta.env.VITE_YD_TOKEN
 const body = 'https://cloud-api.yandex.net/v1/disk/resources'
 const main_root = 'Datasets and Program/HSI and TIR/Aniwave'
 
