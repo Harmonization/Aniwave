@@ -6,7 +6,7 @@ import Typography from '@mui/material/Typography';
 
 const images = [
   {
-    url: './static/1.jpg',
+    url: '../static/1.jpg',
     title: 'HSI: Визуализация',
     width: '40%',
   },

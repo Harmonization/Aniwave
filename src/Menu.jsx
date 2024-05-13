@@ -12,7 +12,7 @@ import Rgb from './plots/Rgb.jsx'
 import Stack from "@mui/material/Stack";
 
 import CustomizedAccordions from './mui/PreloadHiddenText.jsx'
-import ButtonBaseDemo from './mui/MenuButtons.jsx'
+import MenuButtons from './mui/MenuButtons.jsx'
 import SelectStatic from './mui/SelectStatic.jsx'
 import HiddenImage from './mui/HiddenImage.jsx'
 
@@ -88,7 +88,7 @@ function Menu() {
 
         </Stack>
 
-        <ButtonBaseDemo setPoint={setPoint}/>
+        <MenuButtons setPoint={setPoint}/>
 
       </div>
 
