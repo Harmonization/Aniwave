@@ -1,0 +1,143 @@
+body {
+    padding: 0;
+    margin: 0;
+    background-color: antiquewhite;
+}
+
+body::-webkit-scrollbar {
+    width: 15px;
+    background: #121a43;
+}
+
+body::-webkit-scrollbar-track {
+    border: 2px solid #eac8f3;
+    box-shadow: inset 0 0 2px 2px rgba(44, 173, 238, 0.5);
+}
+
+body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #1986db, #b41edabf);
+    border-radius: 3px;
+}
+
+.page {
+    padding: 10px;
+    margin: 10px;
+    background-color: rgb(119, 204, 247);
+    border: 1px solid black;
+    border-radius: 5px;
+    box-shadow: 3px 3px 5px black;
+    min-width: 350px;
+    min-height: 94vh;
+    background-image: url('../static/water.jpg');
+    background-size: cover;
+    /* color: coral; */
+}
+
+/* .menu {
+    margin: 15px;
+
+    display: grid;
+    grid-gap: 5px;
+    grid-template-columns: repeat(auto-fill, 250px);
+} */
+
+/* .menu button {
+    height: 40px;
+    background-color: coral;
+    font-size: large;
+} */
+
+select, input {
+    width: 250px;
+    height: 40px;
+    font-size: large;
+    text-align: center;
+    background-color: coral;
+    border: 2px solid black;
+}
+
+input {
+    height: 34px;
+}
+
+.plots button {
+    height: 40px;
+    background-color: aqua;
+    font-size: large;
+}
+
+/* .plots {
+    background-color: rgb(252, 252, 141);
+    border: 1px solid black;
+    border-radius: 5px;
+    box-shadow: 2px 2px 4px black;
+} */
+
+.plot-item {
+    /* border: 1px solid black; */
+    width: max-content;
+    /* border-radius: 5px;
+    box-shadow: 2px 2px 4px black; */
+    /* background-color: rgb(253, 216, 254); */
+}
+
+.lineplots {
+    display: grid;
+    grid-gap: 10px;
+    grid-template-columns: repeat(auto-fit, 350px);
+}
+
+.smart-heatmap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.stat {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+/* 
+.radio-group {
+    display: inline-block;
+	overflow: hidden;
+}
+
+.radio-group-item {
+    display: inline-block;
+}
+
+.radio-group input[type=radio] {
+    display: none;
+}
+.radio-group label {
+    display: inline-block;
+	cursor: pointer;
+	padding: 0px 15px;
+	line-height: 34px;
+	border: 1px solid #999;
+	border-right: none;
+	user-select: none;
+}
+
+.radio-group .radio-group-item:first-child label {
+    border-radius: 6px 0 0 6px;
+}
+
+.radio-group .radio-group-item:last-child label {
+    border-radius: 0 6px 6px 0;
+	border-right: 1px solid #999;
+}
+
+.radio-group input[type=radio]:checked + label {
+    background: #ffe0a6;
+}
+
+.radio-group label:hover {
+    color: #666;
+}
+
+.radio-group input[type=radio]:disabled + label {
+    background: #efefef;
+	color: #666;
+} */

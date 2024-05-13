@@ -1,61 +1,103 @@
 import { useState, useEffect } from 'react'
+import { useLoaderData } from 'react-router-dom'
+
 import Lumen from './modes/Lumen.jsx'
+import Statistics from './modes/Statistics.jsx'
 import Classification from './modes/Classification.jsx'
 import Clusterization from './modes/Clusterization.jsx'
 import Extract from './modes/Extract.jsx'
 
-const token = import.meta.env.VITE_YD_TOKEN
-const body = 'https://cloud-api.yandex.net/v1/disk/resources'
-const main_root = 'Datasets and Program/HSI and TIR/Aniwave'
+import Rgb from './plots/Rgb.jsx'
+
+import Stack from "@mui/material/Stack";
+
+import CustomizedAccordions from './mui/PreloadHiddenText.jsx'
+import ButtonBaseDemo from './mui/MenuButtons.jsx'
+import SelectStatic from './mui/SelectStatic.jsx'
+import HiddenImage from './mui/HiddenImage.jsx'
+
+const colors = [
+  'Earth',
+  'Blackbody',
+  'Bluered',
+  'Blues',
+  'Cividis',
+  'Electric',
+  'Greens',
+  'Greys',
+  'Hot',
+  'Jet',
+  'Picnic',
+  'Portland',
+  'Rainbow',
+  'RdBu',
+  'Reds',
+  'Viridis',
+  'YlGnBu',
+  'YlOrRd'
+]
+
+const colorsDict = Object.assign({}, ...Object.entries({...colors}).map(([a,b]) => ({ [b]: b })))
+
+const urlMode = 'dev'
+const urlServer = urlMode == 'dev' ? import.meta.env.VITE_URL_DEV : import.meta.env.VITE_URL_DEPLOY
 
 function Menu() {
   const [point, setPoint] = useState(1)
-  const [files, setFiles] = useState(null)
-  const [paths, setPaths] = useState(null)
-  const menuChange = ({target: {value}}) => {
-    setPoint(value)
-  }
+  const [color, setColor] = useState('Rainbow')
+  const [rgb, setRgb] = useState(null)
 
-  const getFiles = async () => {
-    const response = await fetch(`${body}?path=${main_root}&fields=name,_embedded.items.path`, {
-    headers: {Authorization: `OAuth ${token}`}
-    })
-    const {_embedded: {items}} = await response.json()
-    
-    const paths = items.filter(({path}) => path.includes('.npy'))
-    const files = paths.map(({path}) => path.split('/').slice(-1)[0])
-    setFiles(files)
-    setPaths(paths)
-    console.log(paths)
-  }
+  const { paths, files } = useLoaderData()
+  const filesDict = {...files.map(el => `${el}`)}
 
-  const loadFile = async () => {
-    const {value} = document.querySelector("#select_files")
+  // Пункты меню и соответствующие компоненты
+  const menu = [
+    <Lumen key='menu-el-1' urlServer={urlServer} color={color}/>,
+    <Statistics key='menu-el-3' urlServer={urlServer} color={color}/>,
+    null,
+    <Classification key='menu-el-2' urlServer={urlServer} color={color} />,
+    <Extract key='menu-el-5' urlServer={urlServer} color={color}/>,
+    <Clusterization key='menu-el-6' urlServer={urlServer} color={color}/>
+  ]
+
+  const loadFile = async value => {
+    // Загрузить выбранный файл с сервера
+    if (!value) return
+
     const path = paths[value]['path']
-    const response = await fetch(`http://127.0.0.1:8000/download?path=${path}`)
-    const result_download = await response.json()
-    console.log(result_download)
+    const request = `${urlServer}download?path=${path}`
+
+    const response = await fetch(request)
+    const fileinfo = await response.json()
+    setRgb(fileinfo.rgb)
+    console.log(fileinfo)
   }
 
   return (
-    <div className="menu" >
-      <button onClick={getFiles}>Открыть HSI</button>
-      {files && <select onChange={loadFile} name="" id="select_files">
-        {files.map((file, indx) => <option key={indx} value={indx}>{file}</option>)}
-      </select>}
+    <div className="page">
 
-      {point != 1 && <button value={1} onClick={menuChange}>Визуализация HSI</button>}
-      {point != 2 && <button value={2} onClick={menuChange}>Классификация</button>}
-      {point != 3 && <button value={3} onClick={menuChange}>Предобработка</button>}
-      {point != 4 && <button value={4} onClick={menuChange}>Обработка ROI</button>}
-      {point != 5 && <button value={5} onClick={menuChange}>Визуализация TIR</button>}
-      {point != 6 && <button value={6} onClick={menuChange}>Извлечение</button>}
-      {point != 7 && <button value={7} onClick={menuChange}>Кластеризация</button>}
+      <div className="menu" >
+
+        <Stack direction="row" spacing={2}>
+
+          <SelectStatic menuItems={filesDict} currentValue={''} changeFunc={loadFile} title='HSI' nullElem={true}/>
+
+          <SelectStatic menuItems={colorsDict} currentValue={color} changeFunc={setColor} title='Раскраска'/>
+
+          <HiddenImage component={rgb && <Rgb rgb={rgb} />} title='Цветное изображение'/>
+
+        </Stack>
+
+        <ButtonBaseDemo setPoint={setPoint}/>
+
+      </div>
+
+      <CustomizedAccordions indxSection={point-1}></CustomizedAccordions>
+
+      <div className="plots">
+        {menu.map((item, indx) => (point == indx+1 && item))}
+      </div>
       
-      {point == 1 && <Lumen/>}
-      {point == 2 && <Classification/>}
-      {point == 6 && <Extract/>}
-      {point == 7 && <Clusterization/>}
     </div>
   )
 }
