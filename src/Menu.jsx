@@ -16,6 +16,7 @@ import MenuButtons from './mui/MenuButtons.jsx'
 import SelectStatic from './mui/SelectStatic.jsx'
 import HiddenImage from './mui/HiddenImage.jsx'
 
+
 const colors = [
   'Earth',
   'Blackbody',
@@ -39,7 +40,7 @@ const colors = [
 
 const colorsDict = Object.assign({}, ...Object.entries({...colors}).map(([a,b]) => ({ [b]: b })))
 
-const urlMode = 'dev'
+const urlMode = 'deploy'
 const urlServer = urlMode == 'dev' ? import.meta.env.VITE_URL_DEV : import.meta.env.VITE_URL_DEPLOY
 
 function Menu() {
@@ -85,6 +86,8 @@ function Menu() {
           <SelectStatic menuItems={colorsDict} currentValue={color} changeFunc={setColor} title='Раскраска'/>
 
           <HiddenImage component={rgb && <Rgb rgb={rgb} />} title='Цветное изображение'/>
+
+          
 
         </Stack>
 

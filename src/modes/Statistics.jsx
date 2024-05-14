@@ -3,6 +3,8 @@ import { useLoaderData } from "react-router-dom";
 
 import SelectStatic from "../mui/SelectStatic";
 
+import { Stack } from '@mui/material';
+
 import Lineplot from "../plots/Lineplot";
 import Heatmap from "../plots/Heatmap";
 import RegressionPlot from "../plots/RegressionPlot";
@@ -21,10 +23,26 @@ const statSelectItems = {
     q3: "3 квартиль по каналам",
   };
 
+const statMxSelectItems = {
+  matrix_correlation: "Корреляция",
+  max: "Максимум",
+  min: "Минимум",
+  mean: "Среднее",
+  std: "Среднекв. отклонение",
+  scope: "Размах",
+  iqr: "Межквартильный размах",
+  entropy: "Энтропия",
+  q1: "1 квартиль",
+  median: "Медиана",
+  q3: "3 квартиль",
+}
+
 export default function Statistics({urlServer, color}) {
     const [statPlot, setStatPlot] = useState(null); // (str) Выбранный стат график
-    const [statBand, setStatBand] = useState(null); // Данные статистики
-    const [correlation, setCorrelation] = useState(null); // Матрица корреляции
+    const [statMxPlot, setStatMxPlot] = useState(null); // (str) Выбранный стат график матрицы
+    const [statBand, setStatBand] = useState(null); // Данные статистики (каналы)
+    // const [statBandMx, setStatBandMx] = useState(null) // Данные статистики (матрицы)
+    const [correlation, setCorrelation] = useState(null); // Матрица корреляции (или Данные статистики (матрицы))
 
     const { nm } = useLoaderData();
 
@@ -35,7 +53,7 @@ export default function Statistics({urlServer, color}) {
             const response = await fetch(request);
             const mxCorr = await response.json();
             setCorrelation(mxCorr);
-            console.log(mxCorr);
+            // console.log(mxCorr);
           };
           func();
         }
@@ -54,13 +72,34 @@ export default function Statistics({urlServer, color}) {
         setStatPlot(name);
       };
 
+      const getStatMx = async (name) => {
+        let request = `${urlServer}stat/${name}?mode=matrix`;
+        const response = await fetch(request);
+        const result = await response.json();
+        setCorrelation(result)
+        // console.log(result)
+      }
+
     return (
       <>
-        <SelectStatic
-          menuItems={statSelectItems}
-          currentValue={statPlot}
-          changeFunc={getStat}
-        />
+        <Stack direction={'row'} spacing={10}>
+
+          <SelectStatic
+            menuItems={statSelectItems}
+            currentValue={statPlot}
+            changeFunc={getStat}
+          />
+
+          <SelectStatic
+            menuItems={statMxSelectItems}
+            currentValue={statMxPlot}
+            changeFunc={getStatMx}
+            title='Матрицы'
+          />
+
+        </Stack>
+
+        
 
         <div className="stat">
           <div className="stat-plot-1">
@@ -72,8 +111,8 @@ export default function Statistics({urlServer, color}) {
                 point_y={statBand.points_2}
                 line_name={`${statBand.a} * x + ${statBand.b}`}
                 point_name={`</br>Облако точек</br>Корреляция: ${statBand.correlation}</br>Детерминация: ${statBand.determination}</br>Эластичность: ${statBand.elastic}</br>Бета: ${statBand.beta}`}
-                xlabel={`Канал ${statBand.b1}`}
-                ylabel={`Канал ${statBand.b2}`}
+                xlabel={`Канал ${statBand.b1} (${nm[statBand.b1]} nm)`}
+                ylabel={`Канал ${statBand.b2} (${nm[statBand.b2]} nm)`}
               />
             )}
 

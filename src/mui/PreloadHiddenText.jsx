@@ -42,7 +42,7 @@ const AccordionDetails = styled(MuiAccordionDetails)(({ theme }) => ({
   padding: theme.spacing(2),
   borderTop: "1px solid rgba(0, 0, 0, .125)",
   backgroundColor: "rgba(119, 204, 247, .70)",
-  backgroundImage: 'url(./static/2.jpg)',
+  backgroundImage: 'url(https://github.com/Harmonization/Aniwave/blob/main/static/2.jpg?raw=true)',
   backgroundSize: 'cover'
 }));
 

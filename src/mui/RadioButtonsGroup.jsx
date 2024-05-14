@@ -5,12 +5,13 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import FormControl from '@mui/material/FormControl';
 import FormLabel from '@mui/material/FormLabel';
 
-export default function RowRadioButtonsGroup({setPlot}) {
+export default function RowRadioButtonsGroup({setPlot, pressDownFunc}) {
   return (
     <FormControl>
       <FormLabel id="demo-row-radio-buttons-group-label">График</FormLabel>
       <RadioGroup
         onChange={e => setPlot(e.target.value)}
+        onKeyDown={e => pressDownFunc(e)}
         row
         aria-labelledby="demo-row-radio-buttons-group-label"
         name="row-radio-buttons-group"

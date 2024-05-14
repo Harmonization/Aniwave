@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLoaderData } from "react-router-dom";
+import * as XLSX from "xlsx"
 
 import Stack from "@mui/material/Stack";
 
@@ -20,6 +21,7 @@ const inputStory = [
 
 function Lumen({ urlServer, color }) {
   const [channel, setChannel] = useState(null); // Канал
+  const [statIndx, setStatIndx] = useState(null) // Статистика гистограммы
   const [spectreStat, setSpectreStat] = useState(0); // Статистика спектра, производной
   const [plot, setPlot] = useState("hist"); // (str) Выбранный график (спектр, производная, гистограмма)
 
@@ -27,8 +29,9 @@ function Lumen({ urlServer, color }) {
 
   const getChannel = async (expr) => {
     const response = await fetch(`${urlServer}bands/${expr}`);
-    const { spectral_index } = await response.json();
+    const { spectral_index, stat_index } = await response.json();
     setChannel(spectral_index);
+    setStatIndx(stat_index)
   };
 
   const pressChannel = async ({ key, target: { value } }) => {
@@ -43,14 +46,30 @@ function Lumen({ urlServer, color }) {
     setSpectreStat(statistics);
   };
 
+  const saveSpectre2Xlsx = () => {
+    const dataaa = spectreStat.spectre.map((val, indx) => ({band: indx, nm: nm[indx], value: val, derivative: spectreStat.derivative[indx]}))
+
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(dataaa)
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet 1')
+    XLSX.writeFile(wb, 'table.xlsx')
+  }
+
+  const pressEnterSave = (e) => {
+    if (e.key == 'Enter' && spectreStat.spectre && spectreStat.derivative) {
+      saveSpectre2Xlsx()
+    }
+  }
+
   return (
     <>
 
       <div className="panel">
         <Stack direction="row" spacing={2}>
-          <RadioButtonsGroup setPlot={setPlot} />
+          <RadioButtonsGroup setPlot={setPlot} pressDownFunc={pressEnterSave}/>
 
-          <SmartInput pressChannel={pressChannel} story={inputStory}/>
+          <SmartInput pressChannel={pressChannel} blurFunc={getChannel} story={inputStory}/>
+
         </Stack>
       </div>
 
@@ -84,7 +103,7 @@ function Lumen({ urlServer, color }) {
             {plot == "hist" && (
               <Histogram
                 data={channel}
-                title={`</br>Max: ${spectreStat.max_hsi}, Min: ${spectreStat.min_hsi}, Mean: ${spectreStat.mean_hsi}, Std: ${spectreStat.std_hsi}</br>Scope: ${spectreStat.scope_hsi}, IQR: ${spectreStat.iqr_hsi}, Entropy: ${spectreStat.entropy_hsi}</br>Quartile 1: ${spectreStat.q1_hsi}, Median: ${spectreStat.median_hsi}, Quartile 3: ${spectreStat.q3_hsi}`}
+                title={`</br>Max: ${statIndx.max}, Min: ${statIndx.min}, Mean: ${statIndx.mean}, Std: ${statIndx.std}</br>Scope: ${statIndx.scope}, IQR: ${statIndx.iqr}, Entropy: ${statIndx.entropy}</br>Quartile 1: ${statIndx.q1}, Median: ${statIndx.median}, Quartile 3: ${statIndx.q3}`}
               />
             )}
           </div>

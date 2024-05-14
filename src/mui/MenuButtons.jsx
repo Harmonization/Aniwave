@@ -6,32 +6,32 @@ import Typography from '@mui/material/Typography';
 
 const images = [
   {
-    url: '../static/1.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/1.jpg?raw=true',
     title: 'HSI: Визуализация',
     width: '40%',
   },
   {
-    url: './static/2.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/2.jpg?raw=true',
     title: 'HSI: Статистика',
     width: '30%',
   },
   {
-    url: './static/3.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/3.jpg?raw=true',
     title: 'TIR',
     width: '30%',
   },
   {
-    url: './static/4.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/4.jpg?raw=true',
     title: 'HSI: Классификация',
     width: '30%',
   },
   {
-    url: './static/5.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/5.jpg?raw=true',
     title: 'HSI: Образцы',
     width: '30%',
   },
   {
-    url: './static/6.jpg',
+    url: 'https://github.com/Harmonization/Aniwave/blob/main/static/6.jpg?raw=true',
     title: 'HSI: Кластеры',
     width: '40%',
   },

@@ -14,6 +14,22 @@ export default function Heatmap({z, clickFunc, width=700, height=500, color='Ear
           ]} 
           onClick={async e => clickFunc(e)}
           layout={{
+            xaxis: {
+              ticks: '',
+              showticklabels: false
+            },
+            yaxis: {
+              ticks: '',
+              showticklabels: false,
+            },
+            // xaxis: {
+            //   ticks: '',
+            //   showticklabels: false
+            // },
+            // yaxis: {
+            //   ticks: '',
+            //   showticklabels: false,
+            // },
             width: width, 
             height: height,
             margin: {t: 0, b: 30, l: 0, r: 0},
