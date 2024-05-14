@@ -40,7 +40,7 @@ const colors = [
 
 const colorsDict = Object.assign({}, ...Object.entries({...colors}).map(([a,b]) => ({ [b]: b })))
 
-const urlMode = 'dev'
+const urlMode = 'deploy'
 const urlServer = urlMode == 'dev' ? import.meta.env.VITE_URL_DEV : import.meta.env.VITE_URL_DEPLOY
 
 function Menu() {
