@@ -25,13 +25,13 @@ function Extract({urlServer, color}) {
     const [map, setMap] = useState('fcls')
     const [curmap, setCurmap] = useState(0)
 
-    useEffect(() => {getRGB()}, [])
+    // useEffect(() => {getRGB()}, [])
 
-    const getRGB = async () => {
-        const response = await fetch(`${urlServer}rgb`)
-        const {x} = await response.json()
-        setRGB(x)
-    }
+    // const getRGB = async () => {
+    //     const response = await fetch(`${urlServer}rgb`)
+    //     const {x} = await response.json()
+    //     setRGB(x)
+    // }
 
     const startExtract = async ({key, target: {value}}) => {
         if (key === 'Enter') {
