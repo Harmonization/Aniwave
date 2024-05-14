@@ -115,6 +115,7 @@ function Lumen({ urlServer, color }) {
               await getSpectre(x, y);
             }}
             color={color}
+            flagNull={true}
           />
         </div>
       )}

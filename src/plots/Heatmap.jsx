@@ -1,13 +1,15 @@
 
 import Plot from 'react-plotly.js'
 
-export default function Heatmap({z, clickFunc, width=700, height=500, color='Earth'}) {
+export default function Heatmap({z, clickFunc, width=700, height=500, color='Earth', flagNull=false}) {
+    const data_with_null = z.map(row => row.map(value => value != 0 ? value : null))
+
     return (
       <div className="heatmap-item">
         <Plot 
           data={[
             {
-              z: z,
+              z: flagNull ? data_with_null : z,
               type: 'heatmap',
               colorscale: color
             }
