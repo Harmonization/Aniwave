@@ -1,0 +1,81 @@
+body {
+    padding: 0;
+    margin: 0;
+    background-color: antiquewhite;
+}
+
+body::-webkit-scrollbar {
+    width: 15px;
+    background: #121a43;
+}
+
+body::-webkit-scrollbar-track {
+    border: 2px solid #eac8f3;
+    box-shadow: inset 0 0 2px 2px rgba(44, 173, 238, 0.5);
+}
+
+body::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #1986db, #b41edabf);
+    border-radius: 3px;
+}
+
+.page {
+    padding: 10px;
+    margin: 10px;
+    background-color: rgb(245, 245, 245);
+    border: 1px solid black;
+    border-radius: 5px;
+    box-shadow: 3px 3px 5px black;
+    min-width: 350px;
+    min-height: 94vh;
+    /* background-image: url('../static/water.jpg'); */
+    background-size: cover;
+    /* color: coral; */
+}
+
+select, input {
+    width: 250px;
+    height: 40px;
+    font-size: large;
+    text-align: center;
+    background-color: coral;
+    border: 2px solid black;
+}
+
+input {
+    height: 34px;
+}
+
+.plots button {
+    height: 40px;
+    background-color: aqua;
+    font-size: large;
+}
+
+.plot-item {
+    /* border: 1px solid black; */
+    width: max-content;
+    /* border-radius: 5px;
+    box-shadow: 2px 2px 4px black; */
+    /* background-color: rgb(253, 216, 254); */
+}
+
+.lineplots {
+    display: grid;
+    grid-gap: 10px;
+    grid-template-columns: repeat(auto-fit, 350px);
+}
+
+.stat {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.MuiChartsAxis-directionY .MuiChartsAxis-label {
+    transform: translateX(-12px) !important;
+  }
+
+div[class$='MuiResponsiveChart-container'] {
+    /* для того чтобы а графиках был виден крупный ylabel */
+    width: 600px;
+}

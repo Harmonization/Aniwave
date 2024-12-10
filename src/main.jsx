@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import Menu from './Menu.jsx'
-import './style.css'
+import Menu from './Components/Menu.jsx'
+import '../static/style.css'
 
 import '@fontsource/roboto/300.css';
 import '@fontsource/roboto/400.css';
@@ -10,7 +10,7 @@ import '@fontsource/roboto/700.css';
 
 import { createBrowserRouter, RouterProvider} from 'react-router-dom'
 
-import { getFiles } from './getFiles.js'
+import { getFiles } from './Functions/getFiles.js'
 
 const router = createBrowserRouter([
   {
