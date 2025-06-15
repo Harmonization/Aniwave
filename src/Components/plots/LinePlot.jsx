@@ -5,16 +5,18 @@ import { LineChart } from '@mui/x-charts/LineChart';
 
 import getRandomColor from '../../Functions/getRandomColor';
 
-export default function LinePlot({data, width=500, height=300, mode='multy', startBand=0, endBand=203, type='signal'}) {
-  const {nm} = useLoaderData()
-  const cropNm = nm.slice(startBand, endBand + 1)
-  let series
-  if (mode === 'multy') series = data.length !== 0 ? data.map(data_item => ({data: data_item[type].sign, showMark: false, color: data_item.color})) : [{data: cropNm, showMark: false, color: 'coral'}]
-  if (mode !== 'multy') series = [{data: data, showMark: false, color: getRandomColor()}]
-
+export default function LinePlot({data, width=500, height=300, startBand=0, endBand=203, type='signal', nm=[]}) {
+  // let series
+  const series = data.map(data_item => ({data: data_item[type].sign, showMark: false, color: data_item.color}))
+  // if (mode === 'multy') series = data.length !== 0 ? data.map(data_item => ({data: data_item[type].sign, showMark: false, color: data_item.color})) : [{data: cropNm, showMark: false, color: 'coral'}]
+  // if (mode !== 'multy') series = [{data: data, showMark: false, color: getRandomColor()}]
+  
+  // const {nm} = useLoaderData()
+  
   let xContent, yLabel
-  if (series[0].data.length <= 204) {
-    xContent = { data: cropNm, max: nm[endBand]+15, min: nm[startBand]-15, label: 'Wavelength' }
+  if (nm.length !== 0) {
+    // const cropNm = nm.slice(startBand, endBand + 1)
+    xContent = { data: nm, max: nm[nm.length-1]+15, min: nm[0]-15, label: 'Wavelength' }
     yLabel = 'Reflectance'
   }
   else {

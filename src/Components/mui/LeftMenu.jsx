@@ -12,7 +12,8 @@ import ListItemText from '@mui/material/ListItemText';
 import InboxIcon from '@mui/icons-material/MoveToInbox';
 import MailIcon from '@mui/icons-material/Mail';
 
-
+import IconButton from '@mui/material/IconButton';
+import MenuIcon from '@mui/icons-material/Menu';
 
 
 export default function LeftMenu({navigation}) {
@@ -24,30 +25,30 @@ export default function LeftMenu({navigation}) {
   const DrawerList = (
     <Box sx={{ width: 300 }} role="presentation" > 
       <List>
-        {navigation.map(({title, icon, click, type, content}) => (
+        {navigation.map(({title, icon, click, type, content, openedAfterClick}) => (
             type !== 'button' 
             ? 
             <ListItem key={title} disablePadding>
-                {content}
+              {content}
             </ListItem>
             : 
-            <ListItem key={title} disablePadding onClick={toggleDrawer(false)}>
-
-                <ListItemButton onClick={e => click(e)}>
+            <ListItem key={title} disablePadding onClick={toggleDrawer(openedAfterClick)}>
+              {content}
+              <ListItemButton onClick={e => click(e)}>
 
                 <ListItemIcon>
-                    {icon}
+                  {icon}
                 </ListItemIcon>
 
-                <ListItemText primary={title} />
+              <ListItemText primary={title} />
 
-                </ListItemButton>
+              </ListItemButton>
 
             </ListItem>
         ))}        
       </List>
       
-      <Divider />
+      {/* <Divider />
       <List>
         {['All mail', 'Trash', 'Spam'].map((text, index) => (
           <ListItem key={text} disablePadding>
@@ -59,13 +60,16 @@ export default function LeftMenu({navigation}) {
             </ListItemButton>
           </ListItem>
         ))}
-      </List>
+      </List> */}
     </Box>
   );
 
   return (
     <div>
-      <Button onClick={toggleDrawer(true)}>Меню</Button>
+      {/* <Button onClick={toggleDrawer(true)}>Меню</Button> */}
+      <IconButton sx={{ p: '10px' }} aria-label="menu" onClick={toggleDrawer(true)}>
+        <MenuIcon />
+      </IconButton>
       <Drawer open={open} onClose={toggleDrawer(false)}>
         {DrawerList}
       </Drawer>

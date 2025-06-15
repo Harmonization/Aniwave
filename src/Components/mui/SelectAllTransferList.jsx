@@ -1,4 +1,6 @@
 import * as React from 'react';
+import { useLoaderData } from 'react-router-dom';
+
 import Grid from '@mui/material/Grid';
 import List from '@mui/material/List';
 import Card from '@mui/material/Card';
@@ -25,7 +27,9 @@ function union(a, b) {
   return [...a, ...not(b, a)];
 }
 
-export default function SelectAllTransferList({url, diskFiles=[0, 1, 2, 3], downloadedFiles=[4, 5, 6, 7], openImg}) {
+export default function SelectAllTransferList({url, openImg, setOpen, diskFiles}) {
+  const {downloadedFiles} = useLoaderData()
+
   const [checked, setChecked] = React.useState([]);
   const [left, setLeft] = React.useState(diskFiles);
   const [right, setRight] = React.useState(downloadedFiles);
@@ -59,6 +63,7 @@ export default function SelectAllTransferList({url, diskFiles=[0, 1, 2, 3], down
   const handleCheckedOpen = async () => {
     console.log('open')
     await openImg(rightChecked[0])
+    setOpen(false)
   };
 
   const handleCheckedRight = async () => {

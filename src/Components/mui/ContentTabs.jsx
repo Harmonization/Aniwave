@@ -71,13 +71,14 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
     {
       color: 'secondary',
       sx: fabStyle,
-      icon: <EditIcon />,
+      icon: <SaveIcon />,
       label: 'Edit',
+      onClick: buttonsFunc[1]
     },
     {
       color: 'inherit',
       sx: { ...fabStyle, ...fabGreenStyle },
-      icon: <SaveIcon />,
+      icon: <EditIcon />,
       label: 'Expand',
     },
     {
@@ -106,7 +107,7 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
     <Box
       sx={{
         bgcolor: 'background.paper',
-        width: 950,
+        width: 1050,
         position: 'relative',
         minHeight: 200,
       }}

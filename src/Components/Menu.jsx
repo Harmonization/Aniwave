@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLoaderData } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 
 import Rgb from './plots/Rgb.jsx'
 
@@ -7,10 +8,7 @@ import Stack from "@mui/material/Stack";
 
 import SmartInput from "./mui/SmartInput";
 import SelectStatic from './mui/SelectStatic.jsx'
-import HiddenImage from './mui/HiddenImage.jsx'
-import SelectAllTransferList from './mui/SelectAllTransferList.jsx'
 import Track from "./mui/Track";
-import CustomizedDividers from './mui/CustomizedDividers.jsx';
 import LeftMenu from './mui/LeftMenu.jsx'
 import HintsStepper from './mui/HintsStepper.jsx';
 import ContentTabs from './mui/ContentTabs.jsx';
@@ -21,19 +19,22 @@ import CheckboxListSecondary from './mui/CheckboxListSecondary.jsx'
 import HistPlot from './plots/HistPlot.jsx';
 import Heatmap from "./plots/Heatmap";
 import LinePlot from './plots/LinePlot'
+// import Hmap from './plots/Hmap.jsx';
 
 import getFetch from '../Functions/getFetch.js'
 import getRandomColor from '../Functions/getRandomColor.js'
+import str2Numbers from '../Functions/str2numbers.js';
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import BarChartIcon from '@mui/icons-material/BarChart';
-import DescriptionIcon from '@mui/icons-material/Description';
-import LayersIcon from '@mui/icons-material/Layers';
-import InboxIcon from '@mui/icons-material/MoveToInbox';
 import { Button } from '@mui/material';
-import ButtonGroup from '@mui/material/ButtonGroup';
 import Slider3 from './mui/Slider3.jsx';
+import IndexField from './mui/IndexField.jsx';
+import LaptopChromebookIcon from '@mui/icons-material/LaptopChromebook';
+import SaveIcon from '@mui/icons-material/Save';
+import RoiList from './mui/RoiList.jsx';
+import IconButton from '@mui/material/IconButton';
+import AddIcon from '@mui/icons-material/Add';
+import getBlob from '../Functions/getBlob.js';
 
 const stepperContent = {
   tir: ['Откройте TIR.', 
@@ -107,7 +108,6 @@ const smoothMethods = {
 };
 
 const statMxSelectItems = {
-  matrix_correlation: "Корреляция",
   max: "Максимум",
   min: "Минимум",
   mean: "Среднее",
@@ -118,12 +118,19 @@ const statMxSelectItems = {
   q1: "1 квартиль",
   median: "Медиана",
   q3: "3 квартиль",
+  matrix_correlation: "Корреляция",
   }
 
   const classificationSelectItems = {
     sam: "SAM",
     sid: "SID",
     sca: "SCA",
+    chebychev: "Chebychev",
+    ace: "Adaptive Cosine/coherent Estimator",
+    cem: "Constrained Energy Minimization",
+    // glrt: "Generalized Likelihood Ratio Test",
+    mf: "Mathed Filter",
+    // osp: "Orthogonal Subspace Projection"
   };
 
   const clusterContent = {
@@ -149,21 +156,35 @@ const statMxSelectItems = {
   }
 
 function Menu() {
-  const { settings, colorsDict, serverUrl, downloadedFiles, diskFiles, nm } = useLoaderData()
+  const { settings, colorsDict, serverUrl } = useLoaderData()
   const urlServer = serverUrl
   const [tab, setTab] = useState(0) // Какая вкладка открыта
+  const [open, setOpen] = useState(false) // Открыто ли окно загрузки
 
   const [roi, setRoi] = useState(settings.rois_story.map(roi_str => ({roi_str, active: false, color: getRandomColor()})))
+  const [roiList, setRoiList] = useState([{roi_str: 'x0=0,x1=511,y0=0,y1=511', active: true, color: getRandomColor()}])
 
   const [etalon_map, setMap] = useState(Object.keys(mapsMethods)[0])
 
-  const [images, setImages] = useState({diskFiles, downloadedFiles})
+  // const [images, setImages] = useState({diskFiles, downloadedFiles})
+
+  const [ml, setML] = useState({
+    method: Object.keys(clusterContent)[0],
+    segmentation: null,
+    hist: null,
+    bins: null
+  })
 
   const [hmap, setHmap] = useState({
     nameHsi: '',
     count_bands: 204,
+    channels_expr: '0-203',
+    nm: [],
+    roi: {x0: 0, x1: 511, y0: 0, y1: 511},
     rgb: null,
     expression: settings.channel,
+    statMap: statMxSelectItems.mean,
+    // statMap: Object.keys(statMxSelectItems)[2], возникают ошибки, устранить
     index_story: settings.index_story,
     channel: null, 
     hist: null,
@@ -188,6 +209,7 @@ function Menu() {
   
   const [sign, setSign] = useState({
     spectres: [],
+    statSpectres: [],
     filter: settings.filter,
     h: settings.h,
     type: 'signal',
@@ -195,8 +217,15 @@ function Menu() {
     startBand: 0,
     endBand: hmap.count_bands-1
   });
-  const [extract, setExtract] = useState([])
-  const [method, setMethod] = useState('sam')
+  // const [extract, setExtract] = useState([])
+  // const [method, setMethod] = useState('sam')
+
+  const [relative, setRelative] = useState({
+    method: Object.keys(classificationSelectItems)[0],
+    segmentation: null,
+    hist: null,
+    bins: null
+  })
   
   const [rgbTrack, setRgbTrack] = useState({
     red: 70,
@@ -238,13 +267,6 @@ function Menu() {
       max_val: hmap.count_bands-1,
       title: 'Граница каналов',
       step: 1,
-      marks: [
-        {value: 0, label: `${nm[0]}`}, 
-        {value: 51, label: `${nm[51]}`}, 
-        {value: 102, label: `${nm[102]}`}, 
-        {value: 153, label: `${nm[153]}`}, 
-        {value: hmap.count_bands-1, label: `${nm[hmap.count_bands-1]}`}
-      ]
     }
   })
 
@@ -279,17 +301,19 @@ function Menu() {
 
   const getEMD = async (e) => {
     if (e.key == "Enter") {
-      const {emd} = await getFetch(urlServer, 'emd', {name_hsi: hmap.nameHsi})
+      const {emd} = await getFetch(urlServer, 'emd', {})
       setHmap({...hmap, emd})
     }
   }
-
-  useEffect(() => {
-    getEMDChannel();
-  }, [hmap.emd.n_mode, hmap.emd.n_band]);
+  // поправить
+  // useEffect(() => {
+  //   if (hmap.channel) {
+  //     getEMDChannel();
+  //   }
+  // }, [hmap.emd.n_mode, hmap.emd.n_band]);
 
   const getEMDChannel = async () => {
-    const {emd} = await getFetch(urlServer, 'emd_channel', {name_hsi: hmap.nameHsi, n_mode: hmap.emd.n_mode, n_band: hmap.emd.n_band})
+    const {emd} = await getFetch(urlServer, 'emd_channel', {n_mode: hmap.emd.n_mode, n_band: hmap.emd.n_band})
     console.log(emd)
     setHmap({...hmap, emd: {...hmap.emd, channel: emd.channel}})
     setHist({...hist, indx: {hist: emd.hist, bins: emd.bins}})
@@ -338,7 +362,9 @@ function Menu() {
     mode: 'indx',
     indx: {
       bins: null,
-      hist: null
+      hist: null,
+      statBins: null,
+      statHist: null
     },
     sign: {
       bins: ['Max', 'Min', 'Mean', 'Std', 'Scope', 'IQR', 'Q1', 'Median', 'Q3'],
@@ -346,16 +372,32 @@ function Menu() {
     },
     indx_info: {
       bins: ['Max', 'Min', 'Mean', 'Std', 'Scope', 'IQR', 'Q1', 'Median', 'Q3', 'Entropy'],
-      hist: null
+      hist: null,
+      statBins: ['Max', 'Min', 'Mean', 'Std', 'Scope', 'IQR', 'Q1', 'Median', 'Q3', 'Entropy'],
+      statHist: null
     },
     width: 500,
     height: 200,
     color: getRandomColor()
   })
 
+  // useEffect(() => {
+  //   getStatMx(hmap.expression, tracker.boundary.min_val, tracker.boundary.max_val)
+  // }, [tracker.boundary.min_val, tracker.boundary.max_val])
+
   useEffect(() => {
-    getStatMx(hmap.expression, tracker.boundary.min_val, tracker.boundary.max_val)
-  }, [tracker.boundary.min_val, tracker.boundary.max_val])
+    if (hmap.mx) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  }, [hmap.roi, hmap.channels_expr])
+
+  useEffect(() => {
+    if (hmap.mx) {
+      changeThr()
+    }
+  }, [tracker.thr.min_val, tracker.thr.max_val])
+
+  useEffect(() => {
+    if (hmap.channel) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  }, [hmap.statMap])
 
   useEffect(() => {
     reloadSpectres();
@@ -365,12 +407,13 @@ function Menu() {
     if (hmap.nameHsi) getChannel();
   }, [hmap.nameHsi, smart.indx.defaultValue]);
 
-  useEffect(() => {
-    getRgbSyn();
-  }, [rgbTrack.sliderCommit, rgbTrack.blue_mode, rgbTrack.green_mode, rgbTrack.red_mode]);
+  // надо поправить
+  // useEffect(() => {
+  //   if (hmap.channel) getRgbSyn();
+  // }, [rgbTrack.sliderCommit, rgbTrack.blue_mode, rgbTrack.green_mode, rgbTrack.red_mode]);
 
   const getRgbSyn = async () => {
-    const fetch_arg = {name_hsi: hmap.nameHsi, red: rgbTrack.red, green: rgbTrack.green, blue: rgbTrack.blue}
+    const fetch_arg = {red: rgbTrack.red, green: rgbTrack.green, blue: rgbTrack.blue}
     if (rgbTrack.blue_mode) fetch_arg.blue_mode = rgbTrack.blue_mode
     if (rgbTrack.green_mode) fetch_arg.green_mode = rgbTrack.green_mode
     if (rgbTrack.red_mode) fetch_arg.red_mode = rgbTrack.red_mode
@@ -387,14 +430,26 @@ function Menu() {
   const openImg = async name => {
     // Открытие файла по имени
     const fileinfo = await getFetch(serverUrl, 'open', {name})
-    setHmap({...hmap, nameHsi: fileinfo.name, rgb: fileinfo.rgb, count_bands: fileinfo.count_bands})
+    console.log(fileinfo)
+    setHmap({...hmap, 
+      nameHsi: fileinfo.name, 
+      rgb: fileinfo.rgb, 
+      count_bands: fileinfo.count_bands, 
+      bands_expr: `0-${fileinfo.count_bands-1}`, 
+      nm: fileinfo.nm, 
+      roi: {x0: 0, x1: fileinfo.rows, y0: 0, y1: fileinfo.cols},
+      channels_expr: `0-${fileinfo.count_bands-1}`
+    })
     setSign({ ...sign, endBand: fileinfo.count_bands-1});
     setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
+
+    // changeRoi(0, fileinfo.rows, 0, fileinfo.cols)
+    setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
   }
 console.log(hmap)
 console.log(sign)
   const fetchSpectre = async (x, y) => {
-    return await getFetch(urlServer, 'signal', {name_hsi: hmap.nameHsi, x, y, method: sign.filter, h: tracker.filter.max_val})
+    return await getFetch(urlServer, 'signal', {x, y, method: sign.filter, h: tracker.filter.max_val})
   };
 
   const pushSpectre = async (e) => {
@@ -414,22 +469,50 @@ console.log(sign)
   };
 
   const saveSpectre2Xlsx = () => {
-    let start = nm.map((val, indx) => ({ band: indx, nm: val }));
+    let start = hmap.nm.map((val, indx) => ({ band: indx, nm: val }));
     sign.spectres.forEach((spec) => {
       start = start.map((item, indx) => ({
         ...item,
-        [`${spec.x},${spec.y}`]: spec.spectre[indx],
+        [`${spec.x},${spec.y}`]: spec[sign.type].sign[indx],
       }));
     });
-
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.json_to_sheet(start);
     XLSX.utils.book_append_sheet(wb, ws, "Sheet 1");
     XLSX.writeFile(wb, "Спектры.xlsx");
   };
-console.log(hmap)
+
+  const saveMx2Table = () => {
+    const wb = XLSX.utils.book_new();
+    
+    let mx = hmap.mx.channel
+    let start = hmap.nm.map((val, indx) => ({ [val]: mx[indx] }));
+    hmap.nm.forEach((val, indx) => {
+      start = start.map((item, j) => ({
+        ...item,
+        [val]: mx[indx][j]
+      }))
+    })
+    const ws = XLSX.utils.json_to_sheet(start);
+    XLSX.utils.book_append_sheet(wb, ws, "Матрица");
+
+    let ms = sign.statSpectres[0][sign.type].sign
+    console.log(ms)
+    let ms_data = hmap.nm.map((val, indx) => ({ band: indx, nm: val, [hmap.statMap]: ms[indx] }));
+    const ms_sheet = XLSX.utils.json_to_sheet(ms_data);
+    XLSX.utils.book_append_sheet(wb, ms_sheet, "Спектр");
+    
+    XLSX.writeFile(wb, "Спектрограмма.xlsx");
+  }
+  
   const getChannel = async () => {
-    const { data, max, min, ...info} = await getFetch(urlServer, 'bands', {name_hsi: hmap.nameHsi, expr: smart.indx.defaultValue})
+    const { data, max, min, ...info} = await getFetch(urlServer, 'bands', {expr: smart.indx.defaultValue})
+    // const res = await getBlob(urlServer, 'bands', {expr: smart.indx.defaultValue})
+    // const img = new Image();
+    // img.src = URL.createObjectURL(res);
+    // console.log(img)
+
+    // console.log(res)
     setHmap({
       ...hmap,
       channel: data,
@@ -461,79 +544,86 @@ console.log(hmap)
       row.map((item) => (tracker.thr.min_val <= item && item <= tracker.thr.max_val) || item == 0 ? item : null));
   };
 
-  
+  const changeThr = async () => {
+    const res = await getFetch(urlServer, 'change_thr', {thr_expr: smart.indx.defaultValue, lower: tracker.thr.min_val, upper: tracker.thr.max_val})
+    console.log(res)
+    await getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  }
 
   const getStatMx = async (name=hmap.expression, startBand=sign.startBand, endBand=sign.endBand) => {
-    const mxInfo = await getFetch(urlServer, 'idx_mx', {name_hsi: hmap.nameHsi, name, startBand, endBand})
+    const mxInfo = await getFetch(urlServer, 'idx_mx', {name, startBand, endBand})
     console.log(mxInfo)
-    setHmap({...hmap, hiddenMask: false, mx: {channel: mxInfo[sign.type].idx_mx.data, expression: name, hist: mxInfo[sign.type].idx_mx.hist, bins: mxInfo[sign.type].idx_mx.bins}})
+    setHmap({...hmap, mx: {channel: mxInfo[sign.type].idx_mx.data, expression: name, hist: mxInfo[sign.type].idx_mx.hist, bins: mxInfo[sign.type].idx_mx.bins}})
     
-    setSign({...sign, startBand, endBand, spectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
+    // setSign({...sign, startBand, endBand, spectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
+    setSign({...sign, startBand, endBand, statSpectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
     
-    setTrack({
-      ...tracker, 
-      thr: {
-        ...tracker.thr,
-        min_lim: Math.floor(mxInfo[sign.type].min * 100) / 100, 
-        max_lim: Math.ceil(mxInfo[sign.type].max * 100) / 100,
-        min_val: Math.floor(mxInfo[sign.type].min * 100) / 100,
-        max_val: Math.ceil(mxInfo[sign.type].max * 100) / 100
-      }
-    })
+    // setTrack({
+    //   ...tracker, 
+    //   thr: {
+    //     ...tracker.thr,
+    //     min_lim: Math.floor(mxInfo[sign.type].min * 100) / 100, 
+    //     max_lim: Math.ceil(mxInfo[sign.type].max * 100) / 100,
+    //     min_val: Math.floor(mxInfo[sign.type].min * 100) / 100,
+    //     max_val: Math.ceil(mxInfo[sign.type].max * 100) / 100
+    //   }
+    // })
 
     setHist({...hist, indx: {
       ...hist.indx, 
-      hist: mxInfo[sign.type].idx_mx.hist, 
-      bins: mxInfo[sign.type].idx_mx.bins,
+      statHist: mxInfo[sign.type].idx_mx.hist, 
+      statBins: mxInfo[sign.type].idx_mx.bins,
     },
   })
   }
 
   const getSpectreClass = async e => {
     const { x, y } = e.points[0]
-    const {data, ...info} = await getFetch(urlServer, 'classes', {name_hsi: hmap.nameHsi, method, x, y})
+    const result = await getFetch(urlServer, 'classes', {method: relative.method, x, y})
     
     // setHmap({...hmap, channel: data, expression: method, ...info})
-    setHmap({...hmap, relativeIndx: {channel: data, expression: method, ...info}})
-    setHist({...hist, indx: {...hist.indx, ...info}})
-    console.log(info)
+    // setHmap({...hmap, relativeIndx: {channel: data, expression: method, ...info}})
+    // setHist({...hist, indx: {...hist.indx, ...info}})
+    setRelative({...relative, segmentation: result.data, ...result})
+    console.log(result)
     setTrack({
       ...tracker, 
       thr: {
         ...tracker.thr,
-        min_lim: Math.floor(info.min * 100) / 100, 
-        max_lim: Math.ceil(info.max * 100) / 100,
-        min_val: Math.floor(info.min * 100) / 100,
-        max_val: Math.ceil(info.max * 100) / 100
+        min_lim: Math.floor(result.min * 100) / 100, 
+        max_lim: Math.ceil(result.max * 100) / 100,
+        min_val: Math.floor(result.min * 100) / 100,
+        max_val: Math.ceil(result.max * 100) / 100
       }
     })
 
     await pushSpectre(e)
   }
+  console.log(relative)
 
   const startReley = async (e) => {
-    const {reley} = await getFetch(urlServer, 'reley', {name_hsi: hmap.nameHsi})
+    const {reley} = await getFetch(urlServer, 'reley', {})
     setHmap({...hmap, reley: {...hmap.reley, spectres: reley.map(el => ({...el, x: -1, y: -1, color: getRandomColor()}))}})
     // setHist({...hist, indx: {...hist.indx, hist: result.hist, bins: result.bins}})
   }
 
   const startSigma = async (e) => {
     if (e.key === 'Enter') {
-      const {sigma} = await getFetch(urlServer, 'sigma', {name_hsi: hmap.nameHsi, sigma: e.target.value})
+      const {sigma} = await getFetch(urlServer, 'sigma', {sigma: e.target.value})
       setHmap({...hmap, sigma: {...hmap.sigma, spectres: sigma.map(el => ({...el, x: -1, y: -1, color: getRandomColor()}))}})
       // setHist({...hist, indx: {...hist.indx, hist: result.hist, bins: result.bins}})
     }
   }
 
   const startClusterCorr = async (mode='centroids') => {
-    const result = await getFetch(urlServer, 'clusters_corr', {name_hsi: hmap.nameHsi, mode})
+    const result = await getFetch(urlServer, 'clusters_corr', {mode})
     setHmap({...hmap, clusterIndx: {...hmap.clusterIndx, mx_corr: {...hmap.clusterIndx.mx_corr, channel: result.segmentation, mode: result.mode, hist: result.hist, bins: result.bins}}})
     setHist({...hist, indx: {...hist.indx, hist: result.hist, bins: result.bins}})
   }
 
   const startCluster2 = async e => {
     if (e.key === 'Enter') {
-      const result = await getFetch(urlServer, 'clusters_2', {name_hsi: hmap.nameHsi, thr: e.target.value, method: hmap.clusterIndx.method, metrics: hmap.clusterIndx.metrics})
+      const result = await getFetch(urlServer, 'clusters_2', {thr: e.target.value, method: hmap.clusterIndx.method, metrics: hmap.clusterIndx.metrics})
       // setHmap({...hmap, channel: segmentation, hist, bins})
       console.log(result)
       setHmap({...hmap, clusterIndx: {...hmap.clusterIndx, channel: result.segmentation, hist: result.hist, bins: result.bins, centroids: result.centroids.map(el => ({...el, x: -1, y: -1, color: getRandomColor()})), medoids: result.medoids.map(el => ({...el, x: -1, y: -1, color: getRandomColor()}))}})
@@ -547,7 +637,7 @@ console.log(hmap)
   const startClasterization = async e => {
     if (e.key === 'Enter') {
       if (hmap.expression === 'ppi' || hmap.expression === 'nfindr') {
-        const {endmembers} = await getFetch(urlServer, 'endmembers', {name_hsi: hmap.nameHsi, k: e.target.value, method: hmap.expression})
+        const {endmembers} = await getFetch(urlServer, 'endmembers', {k: e.target.value, method: hmap.expression})
 
         // Заполнение спектров чтобы отразить точки на карте
         const spectres = []
@@ -569,59 +659,94 @@ console.log(hmap)
         );
         setSign({ ...sign, spectres: new_spectres });
 
-
-        const {amaps} = await getFetch(urlServer, 'amaps', {name_hsi: hmap.nameHsi, method: etalon_map, endmembers})
+        const {amaps} = await getFetch(urlServer, 'amaps', {method: etalon_map, endmembers})
         console.log(amaps)
         
-        // setExtract(amaps)
-        // setExtract([...extract, ...amaps])
         setHmap({...hmap, channel: amaps[0].data, hist: amaps[0].hist, bins: amaps[0].bins})
       }
       else {
-        const result = await getFetch(urlServer, 'clusters', {name_hsi: hmap.nameHsi, k: e.target.value, method: hmap.expression})
-        setHmap({...hmap, channel: result.segmentation, hist: result.hist, bins: result.bins})
-        setHmap({...hmap, fastClusterIndx: {channel: result.segmentation, hist: result.hist, bins: result.bins}})
-        setExtract([...extract, {data: result.segmentation, hist: result.hist, bins: result.bins}])
-        setHist({...hist, indx: {...hist.indx, hist: result.hist, bins: result.bins}})
+        const result = await getFetch(urlServer, 'clusters', {k: e.target.value, method: ml.method})
+
+        setML({...ml, segmentation: result.segmentation, hist: result.hist, bins: result.bins})
       }
     }
   }
-console.log(hist)
+
+  const changeChannels = async channels_expr => {
+    const fileinfo = await getFetch(serverUrl, 'change_channels', {channels_expr})
+    await reloadSpectres()
+    setHmap({...hmap, channels_expr, nm: fileinfo.nm})
+  }
+
+  const changeRoi = async (x0, x1, y0, y1) => {
+    const fileinfo = await getFetch(serverUrl, 'change_roi', {x0, x1, y0, y1})
+    if (fileinfo === null) {
+      setHmap({...hmap, roi: {...hmap.roi, x0, x1, y0, y1}})
+    }
+  }
+
+  const openFromPC = async e => {
+    const fileinfo = await getFetch(serverUrl, 'convert', {})
+    console.log(fileinfo)
+    setHmap({...hmap, 
+      nameHsi: fileinfo.name, 
+      rgb: fileinfo.rgb, 
+      count_bands: fileinfo.count_bands, 
+      nm: fileinfo.nm, 
+      roi: {x0: 0, x1: fileinfo.rows, y0: 0, y1: fileinfo.cols},
+      channels_expr: `0-${fileinfo.count_bands-1}`
+    })
+    setSign({ ...sign, endBand: fileinfo.count_bands-1});
+    setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
+
+    // changeRoi(0, fileinfo.rows, 0, fileinfo.cols)
+    setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
+  }
+
+  const saveStorage = async e => {
+    const fileinfo = await getFetch(serverUrl, 'save_convert', {})
+    console.log(fileinfo)
+  }
+
   const navigation = [
     {
-        title: 'Открыть HSI',
-        type: 'button',
-        icon: <DashboardIcon />,
-        click: e => console.log('1')
+      title: 'Хранилище HSI',
+      type: 'button',
+      icon: <DashboardIcon />,
+      click: e => setOpen(true),
+      openedAfterClick: true,
+      content: <OpenDialog open={open} setOpen={setOpen} url={serverUrl} openImg={openImg}/>
     },
-    
     {
-      title: 'Скачать HSI с диска',
+      title: 'Открыть с компьютера',
+      type: 'button',
+      icon: <LaptopChromebookIcon />,
+      click: openFromPC,
+      openedAfterClick: false
+    },
+    {
+      title: 'Сохранить в хранилище',
+      type: 'button',
+      icon: <SaveIcon />,
+      click: saveStorage,
+      openedAfterClick: false
+    },
+    {
+      title: 'coloring',
       type: 'list',
-      content: <OpenDialog component1={<SelectAllTransferList url={serverUrl} diskFiles={images.diskFiles} downloadedFiles={images.downloadedFiles} openImg={openImg}/>}/>
+      content: <SelectStatic 
+                  menuItems={colorsDict} 
+                  value={hmap.colormap} 
+                  handleChange={e => setHmap({...hmap, colormap: e.target.value})} 
+                  title='Цветовая палитра'
+                />
     },
     {
-        title: 'Сохранить',
-        type: 'button',
-        icon: <BarChartIcon />,
-        click: console.log('Сохранить')
-    },
-    {
-        title: 'coloring',
-        type: 'list',
-        content: <SelectStatic 
-                    menuItems={colorsDict} 
-                    value={hmap.colormap} 
-                    handleChange={e => setHmap({...hmap, colormap: e.target.value})} 
-                    title='Цветовая палитра'
-                  />
+      title: 'roi',
+      type: 'list',
+      content: <RoiList itemStory={roiList} setItem={setRoiList} submitFunc={upload} changeRoi={changeRoi}/>
     },
   ];
-
-  const str2Numbers = name => {
-    const [x0, x1, y0, y1] = name.split(',').map(num_str => Number(num_str.split('=')[1]))
-    return [x0, x1, y0, y1]
-  }
 
   const convert2Shapes = (tirPoint=false) => {
     // Если tir
@@ -639,6 +764,17 @@ console.log(hist)
           color: spec.color
         }
       }))
+    }
+
+    const mainRoi = {
+      type: 'rect',
+      y0: hmap.roi.x0,
+      y1: hmap.roi.x1,
+      x0: hmap.roi.y0,
+      x1: hmap.roi.y1,
+      line: {
+        color: 'black'
+      }
     }
 
     const filter_settings = roi.filter(el => el.active)
@@ -669,28 +805,30 @@ console.log(hist)
       }
     }))
     
-    return tab === 3 || tab === 6 ? points : (tab === 2 ? rectangles : [])
+    return points.concat(tab === 2 ? rectangles : []).concat(mainRoi)
   }
 
   const hmapComponent = (parameters={}) => {
-    const {w=580, h=400, thr=true, z_data=hmap.channel, func=pushSpectre, correlation=false, x_title=''} = parameters
+    const {w=580, h=400, thr=true, z_data=hmap.channel, func=pushSpectre, correlation=false, x_title='', shapes=convert2Shapes(), mask=hmap.hiddenMask} = parameters
     return <Heatmap 
       z={thr ? thresholding(z_data) : z_data} 
       clickFunc={func}
       color={hmap.colormap} 
-      flagNull={hmap.hiddenMask} 
+      flagNull={mask} 
       type={hmap.type} 
       width={w}
       height={h} 
-      shapes={convert2Shapes()}
+      shapes={shapes}
       correlation={correlation}
       x_title={x_title}
     />
   }
 
-  const histogramComponent = (w=hist.width, h=hist.height, hist_band=hist[hist.mode].hist, bins_band=hist[hist.mode].bins) => <HistPlot 
+  const histogramComponent = (parameters={}) => {
+  const {w=hist.width, h=hist.height, hist_band=hist[hist.mode].hist, bins_band=hist[hist.mode].bins, spectres=sign.spectres} = parameters
+  return <HistPlot 
     hist={hist.mode !== 'sign' ? [{data: hist.mode === 'indx' ? hist_band : [tracker.thr.max_val, tracker.thr.min_val, hmap.mean, hmap.std, hmap.scope, hmap.iqr, hmap.q1, hmap.median, hmap.q3, hmap.entropy], color: hist.color}] : 
-    sign.spectres.map(spectre => ({
+    spectres.map(spectre => ({
       data: [
         spectre[sign.type].max, 
         spectre[sign.type].min, 
@@ -708,7 +846,7 @@ console.log(hist)
     bins={bins_band} 
     width={w} 
     height={h}
-  />
+  />}
 console.log(rgbTrack)
 
   const rgbTrackComponent = <Slider3
@@ -734,22 +872,27 @@ console.log(rgbTrack)
     title={title ? title : tracker[mode].title}
     marks={tracker[mode].marks}
   /> 
+  
+  const linePlotComponent = (parameters={}) => {
+    const {w=500, h=500, type=sign.type, startBand=sign.startBand, endBand=sign.endBand, data=sign.spectres} = parameters
+    return <LinePlot data={data} height={h} width={w} startBand={startBand} endBand={endBand} type={type} nm={hmap.nm}/>
+  }
 
   return (
     <div className="page">
-
-      <LeftMenu navigation={navigation}/>
 
       <Stack direction="row" spacing={2}>
 
         <Stack spacing={2}>
 
-          <SmartInput
-            pressChannel={pressChannel}
-            story={smart[smart.mode].story}
+          {/* <Hmap /> */}
+
+          <IndexField 
+            menuComponent={<LeftMenu navigation={navigation}/>} 
             defaultValue={smart[smart.mode].defaultValue}
-            title={'HSI индекс'}
-            // value={smart.mode === 'sign' && sign.spectres.map((item) => `${item.x},${item.y}`).join(" | ")}
+            pressEnter={pressChannel}
+            story={smart[smart.mode].story}
+            button3d={e => setHmap({...hmap, type: hmap.type === 'heatmap' ? 'surface' : 'heatmap'})}
           />
 
           {hmap.channel && hmapComponent({w: 600, h: 500})}
@@ -762,56 +905,95 @@ console.log(rgbTrack)
               title='Гистограмма'
             />
             <CheckboxDown title={'Производная'} checkFunc={e => setSign({...sign, type: sign.type === 'signal' ? 'diff' : 'signal'})}/>
-            <CheckboxDown title={'3D'} checkFunc={e => setHmap({...hmap, type: hmap.type === 'heatmap' ? 'surface' : 'heatmap'})}/>
             <CheckboxDown title={'Показать фон'} checkFunc={e => setHmap({...hmap, hiddenMask: !hmap.hiddenMask})}/>
+          </Stack>
+
+          <Stack direction="row" spacing={2}>
+            <SmartInput
+              // width={400}
+              pressChannel={e => e.key == "Enter" && changeRoi(...str2Numbers(e.target.value))}
+              title={'Область пространственного интереса'}
+              value={`x0=${hmap.roi.x0},x1=${hmap.roi.x1},y0=${hmap.roi.y0},y1=${hmap.roi.y1}`}
+            />
+            
+            <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={e => setRoiList([...roiList.map(el => ({...el, active: false})), {roi_str: `x0=${hmap.roi.x0},x1=${hmap.roi.x1},y0=${hmap.roi.y0},y1=${hmap.roi.y1}`, active: true, color: getRandomColor()}])}>
+              <AddIcon />
+            </IconButton>
           </Stack>
           <SmartInput
             // width={400}
-            pressChannel={setSmartSpectre}
-            title={'Область интереса'}
-            value={roi[0].roi_str}
+            pressChannel={async e => e.key == "Enter" && changeChannels(e.target.value)}
+            title={'Область спектрального интереса'}
+            value={hmap.channels_expr}
           />
         </Stack>
         
         
-        <ContentTabs value={tab} setValue={setTab} buttonsFunc={[undefined, undefined, undefined, e => openTir('3.xlsx')]} content_obj={{
+        <ContentTabs value={tab} setValue={setTab} buttonsFunc={[undefined, e => saveMx2Table(), undefined, e => openTir('3.xlsx')]} content_obj={{
           ['Визуализация']: <>
               <Stack direction="row" spacing={2}>
-                {sign.active && <LinePlot data={sign.spectres} height={500} width={500} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+                {sign.spectres.length !== 0 && linePlotComponent({w: 1000, h: 450})}
                 
-                {hist[hist.mode].bins && histogramComponent()}
               </Stack>
 
-              <SmartInput
-                pressChannel={setSmartSpectre}
-                title={'Cпектральная сигнатура'}
-                value={sign.spectres.map((item) => `${item.x},${item.y}`).join(" | ")}
-              />
+              <Stack direction="row" spacing={2}>
+                <SmartInput
+                  pressChannel={setSmartSpectre}
+                  title={'Cпектральная сигнатура'}
+                  value={sign.spectres.map((item) => `${item.x},${item.y}`).join(" | ")}
+                  width={900}
+                  />
+                <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={saveSpectre2Xlsx}>
+                  <SaveIcon />
+                </IconButton>
+              </Stack>
+
+              <Stack direction="row" spacing={2}>
+                {hist[hist.mode].bins && histogramComponent({w:1000, h:250})}
+              </Stack>
             </>,
           ['Статистика']: <>
-            <Stack spacing={2}>
+            {/* <Stack spacing={2}> */}
 
+            {/* <Stack direction="row" spacing={2}> */}
             <Stack direction="row" spacing={2}>
-              <Stack spacing={2}>
-                <SelectStatic
-                  menuItems={statMxSelectItems}
-                  value={hmap.expression}
-                  handleChange={e => getStatMx(e.target.value)}
-                  title='Статистика'
-                />
-                {trackComponent('boundary')}
-              </Stack>
+              <SelectStatic
+                menuItems={statMxSelectItems}
+                value={hmap.statMap}
+                // handleChange={e => getStatMx(e.target.value)}
+                handleChange={e => setHmap({...hmap, statMap: e.target.value})}
+                title='Статистика'
+              />
 
-              {hist[hist.mode].bins && histogramComponent()}
+              <SmartInput
+                // width={400}
+                pressChannel={e => e.key == "Enter" && setTrack({ ...tracker, thr: {...tracker.thr, min_val: e.target.value }})}
+                title={'Нижняя граница'}
+                value={tracker.thr.min_val}
+              />
+              <SmartInput
+                // width={400}
+                pressChannel={e => e.key == "Enter" && setTrack({ ...tracker, thr: {...tracker.thr, max_val: e.target.value }})}
+                title={'Верхняя граница'}
+                value={tracker.thr.max_val}
+              />
             </Stack>
+
+            {/* {trackComponent('boundary')} */}
+            
+            <Stack direction="row" spacing={2}>
+              {sign.spectres.statSpectres !== 0 && linePlotComponent({data: sign.statSpectres, w: 1000, h: 300})}
+            </Stack>
+
+            {/* </Stack> */}
             
               <Stack direction="row" spacing={2}>
-                {hmap.mx && hmapComponent({w: 480, h: 400, thr: false, z_data: hmap.mx.channel})}
+                {hmap.mx && hmapComponent({w: 480, h: 400, thr: false, z_data: hmap.mx.channel, shapes: null, mask: false})}
 
-                {sign.active && <LinePlot data={sign.spectres} height={450} width={500} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+                {sign.statSpectres.length && histogramComponent({spectres: sign.statSpectres, hist_band: hist[hist.mode].statHist, bins_band: hist[hist.mode].statBins, h: 400})}
               </Stack>
 
-            </Stack>
+            {/* </Stack> */}
             </>,
           ['Предобработка']: <>
             <HintsStepper steps={stepperContent.preprocessing}/>
@@ -821,7 +1003,7 @@ console.log(rgbTrack)
             </Stack>
 
             <Stack direction="row" spacing={2}>
-              {sign.active && <LinePlot data={sign.spectres} height={400} width={450} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+              {sign.active && linePlotComponent()}
               <CheckboxListSecondary itemStory={roi} setItem={setRoi} submitFunc={upload}/>
             </Stack>
 
@@ -861,7 +1043,7 @@ console.log(rgbTrack)
             <Stack direction="row" spacing={2}>
               {hmap.tir && hmapComponent({w: 550, h: 412, thr: false, z_data: hmap.tir.data})}
                 
-              {hmap.tir && histogramComponent(undefined, undefined, hmap.tir.hist, hmap.tir.bins)}
+              {hmap.tir && histogramComponent({hist_band: hmap.tir.hist, bins_band: hmap.tir.bins})}
 
             </Stack>
               
@@ -872,15 +1054,15 @@ console.log(rgbTrack)
             <Stack direction="row" spacing={2}>
               <SelectStatic 
                 menuItems={clusterContent} 
-                value={hmap.expression} 
-                handleChange={e => setHmap({...hmap, expression: e.target.value})} 
+                value={ml.method}
+                handleChange={e => setML({...ml, method: e.target.value})} 
                 title='Кластеризация'
               />
               <SmartInput pressChannel={startClasterization} defaultValue='5' title='Количество классов'/>
             </Stack>
             <Stack direction="row" spacing={2}>
-              {hmap.channel && hmapComponent({w: 450, h: 400, thr: false, z_data: hmap.fastClusterIndx.channel, func: null})}
-              {hist[hist.mode].bins && histogramComponent()}
+              {ml.segmentation && hmapComponent({w: 450, h: 400, thr: false, z_data: ml.segmentation, func: null, shapes: null, mask: false})}
+              {ml.bins && histogramComponent({hist_band: ml.hist, bins_band: ml.bins})}
             </Stack>
           </>,
           ['Относительный индекс']: <>
@@ -889,8 +1071,8 @@ console.log(rgbTrack)
             <Stack spacing={2}>
               <SelectStatic 
                 menuItems={classificationSelectItems} 
-                value={method} 
-                handleChange={e => setMethod(e.target.value)} 
+                value={relative.method} 
+                handleChange={e => setRelative({...relative, method: e.target.value})} 
                 title='Метод'
               />
               <SmartInput
@@ -901,11 +1083,11 @@ console.log(rgbTrack)
               />
             </Stack>
 
-              {hist[hist.mode].bins && histogramComponent()}
+              {relative.bins && histogramComponent({hist_band: relative.hist, bins_band: relative.bins})}
             </Stack>
             <Stack direction="row" spacing={2}>
-              {hmap.channel && hmapComponent({w: 450, h: 400, z_data: hmap.relativeIndx.channel, func: getSpectreClass})}
-              {sign.active && <LinePlot data={sign.spectres} height={400} width={500} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+              {hmap.channel && hmapComponent({w: 450, h: 400, z_data: relative.segmentation || hmap.channel, func: getSpectreClass})}
+              {sign.active && linePlotComponent({h: 400})}
             </Stack>
           </>,
           ['Поиск эталонов']: <>
@@ -933,7 +1115,7 @@ console.log(rgbTrack)
 
             <Stack direction="row" spacing={2}>
               {hmap.channel && hmapComponent({w: 450, h: 400})}
-              {sign.active && <LinePlot data={sign.spectres} height={400} width={500} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+              {sign.active && linePlotComponent({h: 400})}
             </Stack>
           </>,
           
@@ -1018,7 +1200,7 @@ console.log(rgbTrack)
               />
             </Stack>
             <Stack direction="row" spacing={2}>
-              {hmap.clusterIndx.channel && hmapComponent({w: 450, h: 400, thr: false, z_data: hmap.clusterIndx.channel})}
+              {hmap.clusterIndx.channel && hmapComponent({w: 450, h: 400, thr: false, z_data: hmap.clusterIndx.channel, shapes: null, mask: false})}
               {hist[hist.mode].bins && histogramComponent()}
               {/* {hmap.clusterIndx.centroids.length && <LinePlot data={hmap.clusterIndx.centroids} height={400} width={500} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>} */}
             </Stack>
@@ -1032,7 +1214,8 @@ console.log(rgbTrack)
               {hmap.clusterIndx.mx_corr.channel && hmapComponent({w: 350, h: 300, thr: false, z_data: hmap.clusterIndx.mx_corr.channel, correlation: true, x_title: hmap.clusterIndx.mx_corr.mode})}
               {hist[hist.mode].bins && histogramComponent()}
             </Stack>
-            {hmap.clusterIndx.centroids && <LinePlot data={hmap.clusterIndx[hmap.clusterIndx.mx_corr.mode]} height={300} width={800} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+            
+            {hmap.clusterIndx.centroids && linePlotComponent({h: 300, w: 800, data: hmap.clusterIndx[hmap.clusterIndx.mx_corr.mode]})}
 
           </>,
           ['Релеевское рассеяние']: <>
@@ -1049,8 +1232,8 @@ console.log(rgbTrack)
             <Button>Отфильтровать</Button>
           </Stack>
           <Stack spacing={2}>
-            {hmap.reley.spectres && <LinePlot data={hmap.reley.spectres} height={300} width={800} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
-            {hmap.sigma.spectres && <LinePlot data={hmap.sigma.spectres} height={300} width={800} startBand={sign.startBand} endBand={sign.endBand} type={sign.type}/>}
+            {hmap.reley.spectres && linePlotComponent({h: 300, w: 800, data: hmap.reley.spectres})}
+            {hmap.sigma.spectres && linePlotComponent({h: 300, w: 800, data: hmap.sigma.spectres})}
           </Stack>
 
           </>,
