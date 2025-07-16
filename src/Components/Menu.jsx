@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useLoaderData } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 
+import MouseTooltip from 'react-sticky-mouse-tooltip';
+
 import Rgb from './plots/Rgb.jsx'
 
 import Stack from "@mui/material/Stack";
@@ -15,6 +17,8 @@ import ContentTabs from './mui/ContentTabs.jsx';
 import CheckboxDown from './mui/CheckboxDown.jsx';
 import OpenDialog from './mui/OpenDialog.jsx';
 import CheckboxListSecondary from './mui/CheckboxListSecondary.jsx'
+import RenderGroup from './mui/RenderGroup.jsx';
+import SaveMenu from './mui/SaveMenu.jsx';
 
 import HistPlot from './plots/HistPlot.jsx';
 import Heatmap from "./plots/Heatmap";
@@ -35,6 +39,13 @@ import RoiList from './mui/RoiList.jsx';
 import IconButton from '@mui/material/IconButton';
 import AddIcon from '@mui/icons-material/Add';
 import getBlob from '../Functions/getBlob.js';
+import DeleteIcon from '@mui/icons-material/Delete';
+import ModeStandbyIcon from '@mui/icons-material/ModeStandby';
+import RectangleIcon from '@mui/icons-material/Rectangle';
+
+// import { ScrollContainer } from 'react-indiana-drag-scroll'
+import ScrollContainer from 'react-indiana-drag-scroll';
+
 
 const stepperContent = {
   tir: ['Откройте TIR.', 
@@ -107,6 +118,100 @@ const smoothMethods = {
   nadarai: "Формула Надарая - Ватсона",
 };
 
+const addImageOptions = [
+  {
+    group: 'Спектрограмма',
+    label: 'Среднее',
+    value: 'mean'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Максимум',
+    value: 'max'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Минимум',
+    value: 'min'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Ср.отклонение',
+    value: 'std'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Размах',
+    value: 'scope'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Межквартильный размах',
+    value: 'iqr'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Энтропия',
+    value: 'entropy'
+  },
+  {
+    group: 'Спектрограмма',
+    label: '1_квартиль',
+    value: 'q1'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Медиана',
+    value: 'median'
+  },
+  {
+    group: 'Спектрограмма',
+    label: '3_квартиль',
+    value: 'q3'
+  },
+  {
+    group: 'Спектрограмма',
+    label: 'Корреляция',
+    value: 'matrix_correlation'
+  },
+
+  {
+    group: 'Кластеризация',
+    label: 'KMeans',
+    value: 'kmeans'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'Birch',
+    value: 'birch'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'SpectralClustering |',
+    value: 'spectral_clustering'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'AgglomerativeClustering |',
+    value: 'agglomerative_clustering'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'GaussianMixture |',
+    value: 'gaussian_mixture'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'AffinityPropagation ||',
+    value: 'affinity_propagation'
+  },
+  {
+    group: 'Кластеризация',
+    label: 'OPTICS ||',
+    value: 'optics'
+  },
+]
+
 const statMxSelectItems = {
   max: "Максимум",
   min: "Минимум",
@@ -166,6 +271,16 @@ function Menu() {
 
   const [etalon_map, setMap] = useState(Object.keys(mapsMethods)[0])
 
+  const [tooltip, setTooltip] = useState({visible: false, text: ''})
+
+  const [spectrogram, setSpectogram] = useState(null)
+
+  const [divRoi, setDivRoi] = useState({state: 0, list: [], current: 0})
+
+  const [curRoi, setCurRoi] = useState(-1) // -1 это все изображение
+
+  const [clickMode, setClickMode] = useState(false) // 0 - спектр, 1 - ROI
+
   // const [images, setImages] = useState({diskFiles, downloadedFiles})
 
   const [ml, setML] = useState({
@@ -174,6 +289,8 @@ function Menu() {
     hist: null,
     bins: null
   })
+
+  const [bands, setBands] = useState({text: 'b0', story: settings.index_story, list: [], t: 1, condition: ''})
 
   const [hmap, setHmap] = useState({
     nameHsi: '',
@@ -292,12 +409,13 @@ function Menu() {
     console.log(result)
   }
 
-  const pressChannel = async (e) => {
-    if ((e.type === "keydown" && e.key === "Enter") || e.type === "blur") {
-      // setHmap({ ...hmap, expression: e.target.value });
-      setSmart({...smart, indx: {...smart.indx, defaultValue: e.target.value}})
-    }
-  };
+  // const pressChannel = async (e) => {
+  //   // if ((e.type === "keydown" && e.key === "Enter") || e.type === "blur") {
+  //     // setHmap({ ...hmap, expression: e.target.value });
+  //     setSmart({...smart, indx: {...smart.indx, defaultValue: e.target.value}})
+  //     await getChannel()
+  //   // }
+  // };
 
   const getEMD = async (e) => {
     if (e.key == "Enter") {
@@ -336,18 +454,21 @@ function Menu() {
         })
       );
       const res = spec_arr.filter((item) => item.signal);
-      if (res.length !== 0) setSign({ ...sign, spectres: res });
+      if (res.length !== 0) {
+        setSign({ ...sign, spectres: res });
+        if (hist.mode !== 'sign') setHist({...hist, mode: 'sign'})
+      }
     }
   };
 
   const [smart, setSmart] = useState({
     mode: 'indx',
     indx: {
-      defaultValue: settings.channel,
-      preccFunction: pressChannel,
+      // defaultValue: settings.channel,
+      // preccFunction: pressChannel,
       title: 'Умный индекс',
       story: settings.index_story,
-      value: undefined
+      value: settings.index_story[5]
     },
     sign: {
       defaultValue: undefined,
@@ -385,27 +506,50 @@ function Menu() {
   //   getStatMx(hmap.expression, tracker.boundary.min_val, tracker.boundary.max_val)
   // }, [tracker.boundary.min_val, tracker.boundary.max_val])
 
-  useEffect(() => {
-    if (hmap.mx) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
-  }, [hmap.roi, hmap.channels_expr])
+  const getRgb = async () => {
+    const res = await getBlob(urlServer, 'rgb', {})
+    const img = new Image();
+    img.src = URL.createObjectURL(res);
+    console.log(img)
+    
+    img.onload = () => {
+        setBands({...bands, list: [{type: 'rgb', img: img.src, label: `${hmap.nameHsi} | ${hmap.rows}x${hmap.cols}х${hmap.count_bands}`, width: img.width, height: img.height}]})
+        // document.getElementById('photo-0-img').width = img.width
+        // document.getElementById('photo-0-img').height = img.height
+        // document.getElementsByClassName('photo').height = img.height
+        document.getElementsByClassName('card')[0].setAttribute("style",`height: ${img.height}px`);
+    };
+  }
 
   useEffect(() => {
-    if (hmap.mx) {
-      changeThr()
-    }
-  }, [tracker.thr.min_val, tracker.thr.max_val])
+    if (hmap.nameHsi) getRgb()
+  }, [hmap.nameHsi])
 
   useEffect(() => {
-    if (hmap.channel) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
-  }, [hmap.statMap])
+    if (bands.list.length > 1) getHist()
+  }, [bands.list])
+
+  useEffect(() => {
+    Array.from(document.getElementsByClassName('div-roi')).map(el => el.style.display = `${!clickMode || bands.list[0].type === 'spectrogram' ? 'none' : 'block'}`)
+  }, [clickMode, bands.list])
+
+  // useEffect(() => {
+  //   if (hmap.mx) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  // }, [hmap.roi, hmap.channels_expr])
+
+  // useEffect(() => {
+  //   if (hmap.mx) {
+  //     changeThr()
+  //   }
+  // }, [tracker.thr.min_val, tracker.thr.max_val])
+
+  // useEffect(() => {
+  //   if (bands.list.length) getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  // }, [hmap.statMap])
 
   useEffect(() => {
     reloadSpectres();
   }, [sign.filter, tracker.filter.max_val]);
-
-  useEffect(() => {
-    if (hmap.nameHsi) getChannel();
-  }, [hmap.nameHsi, smart.indx.defaultValue]);
 
   // надо поправить
   // useEffect(() => {
@@ -433,18 +577,20 @@ function Menu() {
     console.log(fileinfo)
     setHmap({...hmap, 
       nameHsi: fileinfo.name, 
-      rgb: fileinfo.rgb, 
+      // rgb: fileinfo.rgb, 
       count_bands: fileinfo.count_bands, 
+      rows: fileinfo.rows,
+      cols: fileinfo.cols,
       bands_expr: `0-${fileinfo.count_bands-1}`, 
       nm: fileinfo.nm, 
       roi: {x0: 0, x1: fileinfo.rows, y0: 0, y1: fileinfo.cols},
       channels_expr: `0-${fileinfo.count_bands-1}`
     })
     setSign({ ...sign, endBand: fileinfo.count_bands-1});
-    setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
+    // setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
 
     // changeRoi(0, fileinfo.rows, 0, fileinfo.cols)
-    setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
+    // setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
   }
 console.log(hmap)
 console.log(sign)
@@ -453,9 +599,13 @@ console.log(sign)
   };
 
   const pushSpectre = async (e) => {
-    const { x, y } = e.points[0];
+    // const { x, y } = e.points[0];
+    const x = Math.round(e.clientX - document.getElementById('photo-0-img').getBoundingClientRect().left)
+    const y = Math.round(e.clientY - document.getElementById('photo-0-img').getBoundingClientRect().top)
+    console.log(x, y)
     const signData = await fetchSpectre(x, y);
     setSign({...sign, spectres: [...sign.spectres, { ...signData, x, y, color: getRandomColor() }] });
+    if (hist.mode !== 'sign') setHist({...hist, mode: 'sign'})
   };
 
   const reloadSpectres = async () => {
@@ -482,60 +632,65 @@ console.log(sign)
     XLSX.writeFile(wb, "Спектры.xlsx");
   };
 
-  const saveMx2Table = () => {
-    const wb = XLSX.utils.book_new();
-    
-    let mx = hmap.mx.channel
-    let start = hmap.nm.map((val, indx) => ({ [val]: mx[indx] }));
-    hmap.nm.forEach((val, indx) => {
-      start = start.map((item, j) => ({
-        ...item,
-        [val]: mx[indx][j]
-      }))
-    })
-    const ws = XLSX.utils.json_to_sheet(start);
-    XLSX.utils.book_append_sheet(wb, ws, "Матрица");
+  const saveMx2Table = async e => {
 
-    let ms = sign.statSpectres[0][sign.type].sign
-    console.log(ms)
-    let ms_data = hmap.nm.map((val, indx) => ({ band: indx, nm: val, [hmap.statMap]: ms[indx] }));
-    const ms_sheet = XLSX.utils.json_to_sheet(ms_data);
-    XLSX.utils.book_append_sheet(wb, ms_sheet, "Спектр");
+    const res = await getFetch(urlServer, 'save_band', {expr: bands.list[0].expr})
+    console.log(res)
     
-    XLSX.writeFile(wb, "Спектрограмма.xlsx");
+    // const wb = XLSX.utils.book_new();
+    
+    // let mx = hmap.mx.channel
+    // let start = hmap.nm.map((val, indx) => ({ [val]: mx[indx] }));
+    // hmap.nm.forEach((val, indx) => {
+    //   start = start.map((item, j) => ({
+    //     ...item,
+    //     [val]: mx[indx][j]
+    //   }))
+    // })
+    // const ws = XLSX.utils.json_to_sheet(start);
+    // XLSX.utils.book_append_sheet(wb, ws, "Матрица");
+
+    // let ms = sign.statSpectres[0][sign.type].sign
+    // console.log(ms)
+    // let ms_data = hmap.nm.map((val, indx) => ({ band: indx, nm: val, [hmap.statMap]: ms[indx] }));
+    // const ms_sheet = XLSX.utils.json_to_sheet(ms_data);
+    // XLSX.utils.book_append_sheet(wb, ms_sheet, "Спектр");
+    
+    // XLSX.writeFile(wb, "Спектрограмма.xlsx");
   }
   
-  const getChannel = async () => {
-    const { data, max, min, ...info} = await getFetch(urlServer, 'bands', {expr: smart.indx.defaultValue})
-    // const res = await getBlob(urlServer, 'bands', {expr: smart.indx.defaultValue})
-    // const img = new Image();
-    // img.src = URL.createObjectURL(res);
-    // console.log(img)
+  const getChannel = async (expression = undefined) => {
+    // const { data, max, min, ...info} = await getFetch(urlServer, 'bands', {expr: smart.indx.defaultValue})
+    const expr_conditional = (expression ? expression : bands.text)
+    const expr_decomposition = expr_conditional.includes('<') ? expr_conditional.split('<') : expr_conditional.split('>')
+    console.log(expr_decomposition)
 
-    // console.log(res)
-    setHmap({
-      ...hmap,
-      channel: data,
-      relativeIndx: {channel: hmap.relativeIndx.channel ? hmap.relativeIndx.channel : data},
-      fastClusterIndx: {channel: hmap.fastClusterIndx.channel ? hmap.fastClusterIndx.channel : data},
-      min_lim: Math.floor(min * 100) / 100,
-      max_lim: Math.ceil(max * 100) / 100,
-      ...info
-    });
-
-    setTrack({
-      ...tracker, 
-      thr: {
-        ...tracker.thr,
-        min_lim: Math.floor(min * 100) / 100, 
-        max_lim: Math.ceil(max * 100) / 100,
-        min_val: Math.floor(min * 100) / 100,
-        max_val: Math.ceil(max * 100) / 100
-      }
-    })
+    const expr = expr_decomposition[0]
+    const t = expr_decomposition.length !== 1 ? parseFloat(expr_decomposition[1]) : bands.t
+    const condition = expr_conditional.includes('<') ? 'lower' : (expr_conditional.includes('>') ? 'upper' : '')
+    
+    
+    const res = await getBlob(urlServer, 'bands_png', {expr, t, condition})
+    const img = new Image();
+    img.src = URL.createObjectURL(res);
+    console.log(img)
+    
+    img.onload = () => {
+      setBands({...bands, list: [{img: img.src, type: 'band', label: `${expr} | t: ${t}`, width: img.width, height: img.height, expr}, ...bands.list], t})
+    }
     
     setHist({...hist, indx: {...hist.indx, ...info}})
   };
+
+  const getHist = async () => {
+    const {signal, diff, ...info} = await getFetch(urlServer, 'hist', {})
+    console.log(info)
+
+    setHist({...hist, indx: {...hist.indx, ...info}, mode: 'indx'})
+    if (diff) setSign({...sign, spectres: [{ signal, diff, x: -1, y: -1, color: getRandomColor() }] });
+    // setSign({...sign, startBand, endBand, spectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
+
+  }
 
   const thresholding = (arr) => {
     // Маскирование двумерного массива
@@ -544,58 +699,59 @@ console.log(sign)
       row.map((item) => (tracker.thr.min_val <= item && item <= tracker.thr.max_val) || item == 0 ? item : null));
   };
 
-  const changeThr = async () => {
-    const res = await getFetch(urlServer, 'change_thr', {thr_expr: smart.indx.defaultValue, lower: tracker.thr.min_val, upper: tracker.thr.max_val})
-    console.log(res)
-    await getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
-  }
+  // const changeThr = async () => {
+  //   const res = await getFetch(urlServer, 'change_thr', {thr_expr: smart.indx.defaultValue, lower: tracker.thr.min_val, upper: tracker.thr.max_val})
+  //   console.log(res)
+  //   await getStatMx(hmap.statMap, tracker.boundary.min_val, tracker.boundary.max_val)
+  // }
 
-  const getStatMx = async (name=hmap.expression, startBand=sign.startBand, endBand=sign.endBand) => {
-    const mxInfo = await getFetch(urlServer, 'idx_mx', {name, startBand, endBand})
-    console.log(mxInfo)
-    setHmap({...hmap, mx: {channel: mxInfo[sign.type].idx_mx.data, expression: name, hist: mxInfo[sign.type].idx_mx.hist, bins: mxInfo[sign.type].idx_mx.bins}})
+  const getStatMx = async (name=hmap.expression) => {
+    // const mxInfo = await getFetch(urlServer, 'idx_mx', {name, startBand, endBand})
+    const res = await getBlob(urlServer, 'idx_mx', {name})
+    const img = new Image();
+    img.src = URL.createObjectURL(res);
+    console.log(img)
+
+    
+    const scale_factor =  hmap.rows / hmap.count_bands
+    img.onload = () => {
+      const expr = addImageOptions.filter(option => option.value === name)[0].label
+      setBands({...bands, list: [{type: 'spectrogram', img: img.src, label: `${expr} | по ${curRoi === -1 ? 'HSI' : `ROI №${curRoi}`} | t: ${bands.t}`, width: hmap.rows, height: hmap.rows, expr: name}, ...bands.list]})
+      setSpectogram({img: img.src, width: img.width, height: img.height, scale: scale_factor})
+    }
+
+    // console.log(mxInfo)
+    // setHmap({...hmap, mx: {channel: mxInfo[sign.type].idx_mx.data, expression: name, hist: mxInfo[sign.type].idx_mx.hist, bins: mxInfo[sign.type].idx_mx.bins}})
     
     // setSign({...sign, startBand, endBand, spectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
-    setSign({...sign, startBand, endBand, statSpectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
-    
-    // setTrack({
-    //   ...tracker, 
-    //   thr: {
-    //     ...tracker.thr,
-    //     min_lim: Math.floor(mxInfo[sign.type].min * 100) / 100, 
-    //     max_lim: Math.ceil(mxInfo[sign.type].max * 100) / 100,
-    //     min_val: Math.floor(mxInfo[sign.type].min * 100) / 100,
-    //     max_val: Math.ceil(mxInfo[sign.type].max * 100) / 100
-    //   }
-    // })
+    // setSign({...sign, statSpectres: [{signal: {sign: mxInfo['signal'].sign}, diff: {sign: mxInfo['diff'].sign}, x: -1, y: -1, name, color: getRandomColor(), ...mxInfo}]})
 
-    setHist({...hist, indx: {
-      ...hist.indx, 
-      statHist: mxInfo[sign.type].idx_mx.hist, 
-      statBins: mxInfo[sign.type].idx_mx.bins,
-    },
-  })
+
+  //   setHist({...hist, indx: {
+  //     ...hist.indx, 
+  //     statHist: mxInfo[sign.type].idx_mx.hist, 
+  //     statBins: mxInfo[sign.type].idx_mx.bins,
+  //   },
+  // })
   }
 
   const getSpectreClass = async e => {
     const { x, y } = e.points[0]
     const result = await getFetch(urlServer, 'classes', {method: relative.method, x, y})
     
-    // setHmap({...hmap, channel: data, expression: method, ...info})
-    // setHmap({...hmap, relativeIndx: {channel: data, expression: method, ...info}})
     // setHist({...hist, indx: {...hist.indx, ...info}})
     setRelative({...relative, segmentation: result.data, ...result})
     console.log(result)
-    setTrack({
-      ...tracker, 
-      thr: {
-        ...tracker.thr,
-        min_lim: Math.floor(result.min * 100) / 100, 
-        max_lim: Math.ceil(result.max * 100) / 100,
-        min_val: Math.floor(result.min * 100) / 100,
-        max_val: Math.ceil(result.max * 100) / 100
-      }
-    })
+    // setTrack({
+    //   ...tracker, 
+    //   thr: {
+    //     ...tracker.thr,
+    //     min_lim: Math.floor(result.min * 100) / 100, 
+    //     max_lim: Math.ceil(result.max * 100) / 100,
+    //     min_val: Math.floor(result.min * 100) / 100,
+    //     max_val: Math.ceil(result.max * 100) / 100
+    //   }
+    // })
 
     await pushSpectre(e)
   }
@@ -679,28 +835,41 @@ console.log(sign)
   }
 
   const changeRoi = async (x0, x1, y0, y1) => {
-    const fileinfo = await getFetch(serverUrl, 'change_roi', {x0, x1, y0, y1})
-    if (fileinfo === null) {
-      setHmap({...hmap, roi: {...hmap.roi, x0, x1, y0, y1}})
-    }
+    const text = `x: ${x0} - ${x1}, y: ${y0} - ${y1}`
+    const currentRoi = divRoi.list[curRoi]
+    const changedRoi = {x0, y0, x1, y1, color: currentRoi.color, text}
+    setDivRoi({...divRoi, list: [...divRoi.list.map(el => el !== currentRoi ? el : changedRoi)]})
+    
+    const div = document.getElementById(`roi-${curRoi}`)
+    div.style.marginLeft = `${x0}px`
+    div.style.marginTop = `${y0}px`
+    div.style.height = `${y1 - y0 - 5}px`
+    div.style.width = `${x1 - x0 - 5}px`
+    div.addEventListener('mousemove', e => setTooltip({...tooltip, visible: true, text: `ROI №${curRoi} ` + text}))
+
+    await getFetch(serverUrl, 'change_roi', {x0, x1, y0, y1})
+    // if (fileinfo === null) {
+    //   setHmap({...hmap, roi: {...hmap.roi, x0, x1, y0, y1}})
+    // }
   }
 
   const openFromPC = async e => {
     const fileinfo = await getFetch(serverUrl, 'convert', {})
     console.log(fileinfo)
     setHmap({...hmap, 
-      nameHsi: fileinfo.name, 
-      rgb: fileinfo.rgb, 
-      count_bands: fileinfo.count_bands, 
+      nameHsi: fileinfo.name,
+      count_bands: fileinfo.count_bands,
+      rows: fileinfo.rows,
+      cols: fileinfo.cols,
       nm: fileinfo.nm, 
       roi: {x0: 0, x1: fileinfo.rows, y0: 0, y1: fileinfo.cols},
       channels_expr: `0-${fileinfo.count_bands-1}`
     })
     setSign({ ...sign, endBand: fileinfo.count_bands-1});
-    setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
+    // setTrack({ ...tracker, boundary: {...tracker.boundary, max_lim: fileinfo.count_bands-1, max_val: fileinfo.count_bands-1}})
 
     // changeRoi(0, fileinfo.rows, 0, fileinfo.cols)
-    setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
+    // setRoiList([{roi_str: `x0=0,x1=${fileinfo.rows},y0=0,y1=${fileinfo.cols}`, active: true, color: getRandomColor()}])
   }
 
   const saveStorage = async e => {
@@ -731,21 +900,16 @@ console.log(sign)
       click: saveStorage,
       openedAfterClick: false
     },
-    {
-      title: 'coloring',
-      type: 'list',
-      content: <SelectStatic 
-                  menuItems={colorsDict} 
-                  value={hmap.colormap} 
-                  handleChange={e => setHmap({...hmap, colormap: e.target.value})} 
-                  title='Цветовая палитра'
-                />
-    },
-    {
-      title: 'roi',
-      type: 'list',
-      content: <RoiList itemStory={roiList} setItem={setRoiList} submitFunc={upload} changeRoi={changeRoi}/>
-    },
+    // {
+    //   title: 'coloring',
+    //   type: 'list',
+    //   content: <SelectStatic 
+    //               menuItems={colorsDict} 
+    //               value={hmap.colormap} 
+    //               handleChange={e => setHmap({...hmap, colormap: e.target.value})} 
+    //               title='Цветовая палитра'
+    //             />
+    // },
   ];
 
   const convert2Shapes = (tirPoint=false) => {
@@ -827,7 +991,7 @@ console.log(sign)
   const histogramComponent = (parameters={}) => {
   const {w=hist.width, h=hist.height, hist_band=hist[hist.mode].hist, bins_band=hist[hist.mode].bins, spectres=sign.spectres} = parameters
   return <HistPlot 
-    hist={hist.mode !== 'sign' ? [{data: hist.mode === 'indx' ? hist_band : [tracker.thr.max_val, tracker.thr.min_val, hmap.mean, hmap.std, hmap.scope, hmap.iqr, hmap.q1, hmap.median, hmap.q3, hmap.entropy], color: hist.color}] : 
+    hist={hist.mode !== 'sign' ? [{data: hist.mode === 'indx' ? hist_band : [hist.indx.max, hist.indx.min, hist.indx.mean, hist.indx.std, hist.indx.scope, hist.indx.iqr, hist.indx.q1, hist.indx.median, hist.indx.q3, hist.indx.entropy], color: hist.color}] : 
     spectres.map(spectre => ({
       data: [
         spectre[sign.type].max, 
@@ -878,62 +1042,214 @@ console.log(rgbTrack)
     return <LinePlot data={data} height={h} width={w} startBand={startBand} endBand={endBand} type={type} nm={hmap.nm}/>
   }
 
+  const getXEvent = e => {
+    return Math.round(e.clientX - document.getElementById('photo-0-img').getBoundingClientRect().left)
+  }
+
+  const getYEvent = e => {
+    return Math.round(e.clientY - document.getElementById('photo-0-img').getBoundingClientRect().top)
+  }
+
+  const createRoi = e => {
+    const x = getXEvent(e)
+    const y = getYEvent(e)
+
+    const div = document.createElement('div')
+    div.id = `roi-${divRoi.list.length}`
+    div.className = 'div-roi'
+    
+    // const card = document.getElementsByClassName('card')[0]
+    const card = document.getElementsByClassName('indiana-scroll-container--hide-scrollbars')[0]
+    console.log(div)
+    console.log(card)
+    divRoi.currentColor = getRandomColor()
+    div.style.border = `${divRoi.currentColor} 3px solid`
+    div.style.backgroundColor = '#00ffff47'
+    div.style.position = 'absolute'
+    div.style.marginLeft = `${x}px`
+    div.style.marginTop = `${y}px`
+    div.style.height = '0px'
+    div.style.width = '0px'
+    card.append(div)
+
+    setDivRoi({...divRoi, state: 1})
+  }
+
+  const resizeRoi = e => {
+    const x = getXEvent(e)
+    const y = getYEvent(e)
+
+    const div = document.getElementById(`roi-${divRoi.list.length}`)
+    const x0 = parseInt(div.style.marginLeft)
+    const y0 = parseInt(div.style.marginTop)
+
+    div.style.height = `${y - y0 - 10}px`
+    div.style.width = `${x - x0 - 10}px`
+  }
+
+  const saveRoi = async e => {
+    const x = getXEvent(e)
+    const y = getYEvent(e)
+
+    const id = divRoi.list.length
+    const div = document.getElementById(`roi-${id}`)
+    const x0 = parseInt(div.style.marginLeft)
+    const y0 = parseInt(div.style.marginTop)
+
+    const height = y - y0
+    const width = x - x0
+    if (height < 10 || width < 10) {
+      div.remove()
+      setDivRoi({...divRoi, state: 0})
+      return
+    }
+    div.style.height = `${height - 10}px`
+    div.style.width = `${width - 10}px`
+
+    const text = `x: ${x0} - ${x - 5}, y: ${y0} - ${y - 5}`
+    const changeRoiFunc = async () => await getFetch(serverUrl, 'change_roi', {x0, x1: x - 5, y0, y1: y - 5})
+    setDivRoi({state: 0, list: [...divRoi.list, {x0, y0, x1: x - 5, y1: y - 5, color: divRoi.currentColor, text, changeRoiFunc}], current: divRoi.current + 1})
+    setCurRoi(id)
+
+    div.addEventListener('mousemove', e => setTooltip({...tooltip, visible: true, text: `ROI №${id} ` + text}))
+    div.addEventListener('click', async e => {setCurRoi(id); await changeRoiFunc()})
+
+    await changeRoiFunc()
+  }
+
+  const delRoi = e => {
+    if (curRoi !== -1) {
+      setDivRoi({...divRoi, list: [...divRoi.list.filter(el => el !== divRoi.list[curRoi])]})
+      setCurRoi(-1) 
+
+      document.getElementById(`roi-${curRoi}`).remove()
+    }
+  }
+
+  const tooltipTextMx = e => {
+    const x = Math.round((e.clientX - document.getElementById('photo-0-img').getBoundingClientRect().left) / spectrogram.scale)
+    const y = Math.round((e.clientY - document.getElementById('photo-0-img').getBoundingClientRect().top) / spectrogram.scale)
+    const nmX = hmap.nm[x]
+    const nmY = hmap.nm[y]
+    return `x: ${x}, y: ${y}, nm(x): ${nmX}, nm(y): ${nmY}`
+  }
+
+  const addImagePressButton = async e => {
+    const stringSplit = e.target.value.split(' ')
+
+    if (stringSplit.length === 1) {
+      const addImageOptionsElement = addImageOptions.filter(option => option.label === e.target.value)[0]
+      if (addImageOptionsElement.group === 'Спектрограмма') getStatMx(addImageOptionsElement.value)
+    }
+
+    else if (stringSplit.length === 2)
+    {
+      const [method, k] = stringSplit
+  
+      const res = await getBlob(urlServer, 'clusters', {k: Number(k), method: addImageOptions.filter(option => option.label === method)[0].value})
+      const img = new Image();
+      img.src = URL.createObjectURL(res);
+      console.log(img)
+
+      img.onload = () => {
+        setBands({...bands, list: [{img: img.src, type: 'band', label: `Метод: ${method} | k = ${k}`, width: img.width, height: img.height}, ...bands.list]})
+      }
+
+      // setML({...ml, segmentation: result.segmentation, hist: result.hist, bins: result.bins})
+      
+  }
+      // setML({...ml, method: e.target.value})
+  }
+  
   return (
     <div className="page">
-
-      <Stack direction="row" spacing={2}>
-
-        <Stack spacing={2}>
-
-          {/* <Hmap /> */}
-
-          <IndexField 
-            menuComponent={<LeftMenu navigation={navigation}/>} 
-            defaultValue={smart[smart.mode].defaultValue}
-            pressEnter={pressChannel}
-            story={smart[smart.mode].story}
-            button3d={e => setHmap({...hmap, type: hmap.type === 'heatmap' ? 'surface' : 'heatmap'})}
-          />
-
-          {hmap.channel && hmapComponent({w: 600, h: 500})}
-
-          <Stack direction="row" spacing={2}>
-            <SelectStatic 
-              menuItems={{indx: 'HSI индекс', sign: 'Статистика спектров', indx_info: 'Статистика HSI индекса'}} 
-              value={hist.mode} 
-              handleChange={e => setHist({...hist, mode: e.target.value})} 
-              title='Гистограмма'
-            />
-            <CheckboxDown title={'Производная'} checkFunc={e => setSign({...sign, type: sign.type === 'signal' ? 'diff' : 'signal'})}/>
-            <CheckboxDown title={'Показать фон'} checkFunc={e => setHmap({...hmap, hiddenMask: !hmap.hiddenMask})}/>
-          </Stack>
-
-          <Stack direction="row" spacing={2}>
-            <SmartInput
-              // width={400}
-              pressChannel={e => e.key == "Enter" && changeRoi(...str2Numbers(e.target.value))}
-              title={'Область пространственного интереса'}
-              value={`x0=${hmap.roi.x0},x1=${hmap.roi.x1},y0=${hmap.roi.y0},y1=${hmap.roi.y1}`}
-            />
-            
-            <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={e => setRoiList([...roiList.map(el => ({...el, active: false})), {roi_str: `x0=${hmap.roi.x0},x1=${hmap.roi.x1},y0=${hmap.roi.y0},y1=${hmap.roi.y1}`, active: true, color: getRandomColor()}])}>
-              <AddIcon />
-            </IconButton>
-          </Stack>
-          <SmartInput
-            // width={400}
+      <Stack>
+        <IndexField 
+          menuComponent={<LeftMenu navigation={navigation}/>} 
+          defaultValue={bands.text}
+          pressEnter={async e => e.key == "Enter" && getChannel(e.target.value)}
+          story={bands.story}
+          buttonClear={e => setBands({...bands, list: [...bands.list.filter(el => el.type === 'rgb')]})}
+          button3d={e => setHmap({...hmap, type: hmap.type === 'heatmap' ? 'surface' : 'heatmap'})}
+          derivButton={e => setSign({...sign, type: sign.type === 'signal' ? 'diff' : 'signal'})}
+          backgButton={e => setHmap({...hmap, hiddenMask: !hmap.hiddenMask})}
+          component1={<RenderGroup options={addImageOptions} pressEnter={e => e.key == "Enter" && addImagePressButton(e)}/>}
+          component2={<SmartInput
+            width={250}
             pressChannel={async e => e.key == "Enter" && changeChannels(e.target.value)}
             title={'Область спектрального интереса'}
             value={hmap.channels_expr}
-          />
-        </Stack>
-        
-        
+            type='text'
+          />}
+          component3={<SmartInput
+            width={250}
+            pressChannel={e => e.key == "Enter" && changeRoi(...str2Numbers(e.target.value))}
+            title={`ROI | ${curRoi !== -1 ? curRoi : 'HSI'}`}
+            value={curRoi !== -1 ? divRoi.list[curRoi].text : `x: ${0} - ${hmap.cols}, y: ${0} - ${hmap.rows}`}
+            type='text'
+          />}
+          component4={<IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={async e => {delRoi(e); await getFetch(serverUrl, 'change_roi', {x0: 0, x1: hmap.cols, y0: 0, y1: hmap.rows})}}>
+            <DeleteIcon /> 
+          </IconButton>}
+          component5={<SaveMenu saveButtons={[
+                  {
+                      title: 'Сохранить спектры',
+                      onClick: saveSpectre2Xlsx
+                  },
+                  {
+                      title: 'Сохранить изображение',
+                      onClick: saveMx2Table
+                  },
+              ]}/>
+          // <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={saveMx2Table}>
+          //   <SaveIcon /> 
+          // </IconButton>
+          }
+          buttonClickMode={<IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={e => setClickMode(!clickMode)}>
+            {clickMode ? <RectangleIcon/> : <ModeStandbyIcon />}
+            {/* div.style.display = `${clickMode ? 'block' : 'none'}`  */}
+          </IconButton>}
+        />
+
+        <div className='card'>
+            <ScrollContainer className="photo">
+                {bands.list.map((el, i) => 
+                (<div className="photo-item" key={`band_img_${i}`} id={`photo-${i}`}>
+                  <img 
+                  width={el.width}
+                  height={el.height}
+                  id={`photo-${i}-img`}
+                  src={`${el.img}`} 
+                  alt="Контрастное изображение" 
+                  // onError={(e) => {
+                  // e.target.onerror = null; 
+                  // e.target.src = '/fallback-image.jpg'; // Запасное изображение при ошибке
+                  // }}
+                  onClick={
+                    e => i === 0 
+                    ? clickMode && el.type !== 'spectrogram' ? (!divRoi.state ? createRoi(e) : saveRoi(e)) : (el.type !== 'spectrogram' && pushSpectre(e))
+                    : setBands({...bands, list: [bands.list[i], ...bands.list.filter((val, indx) => indx !== i)]})
+                  }
+                  onMouseMove={e => i === 0 && (divRoi.state == 1 ? resizeRoi(e) : setTooltip({...tooltip, visible: true, text: el.type !== 'spectrogram' ? `x: ${getXEvent(e)}, y: ${getYEvent(e)}` : tooltipTextMx(e)}))}
+                  onMouseLeave={e => i === 0 && tooltip.visible && setTooltip({...tooltip, visible: false, text: ''})}
+                  // onMouseDown={e => console.log('sdfsaf')}
+                  />
+                  <br/>
+                  <div className='label-container'>
+                    <label className='label-item'>{el.label}</label>
+                  </div>
+              </div>))}
+            </ScrollContainer>
+          </div>
+
+      </Stack>
+
+      <Stack direction="row" spacing={2}>
         <ContentTabs value={tab} setValue={setTab} buttonsFunc={[undefined, e => saveMx2Table(), undefined, e => openTir('3.xlsx')]} content_obj={{
           ['Визуализация']: <>
               <Stack direction="row" spacing={2}>
                 {sign.spectres.length !== 0 && linePlotComponent({w: 1000, h: 450})}
-                
+                {hist[hist.mode].bins && histogramComponent({w:1000, h:250})}
               </Stack>
 
               <Stack direction="row" spacing={2}>
@@ -943,85 +1259,34 @@ console.log(rgbTrack)
                   value={sign.spectres.map((item) => `${item.x},${item.y}`).join(" | ")}
                   width={900}
                   />
-                <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={saveSpectre2Xlsx}>
-                  <SaveIcon />
-                </IconButton>
+
+                {/* <SelectStatic
+                  menuItems={statMxSelectItems}
+                  value={hmap.statMap}
+                  // handleChange={e => getStatMx(e.target.value)}
+                  handleChange={e => setHmap({...hmap, statMap: e.target.value})}
+                  title='Спектрограмма'
+                /> */}
+
+                <SelectStatic 
+                  menuItems={smoothMethods}
+                  value={sign.filter}
+                  handleChange={(e) => setSign({ ...sign, filter: e.target.value })}
+                  title="Сглаживание"
+                  nullElem={true}
+                />
+                
+                {trackComponent('filter')}
+                <SelectStatic 
+                    menuItems={{indx: 'HSI индекс', sign: 'Статистика спектров', indx_info: 'Статистика HSI индекса'}} 
+                    value={hist.mode} 
+                    handleChange={e => setHist({...hist, mode: e.target.value})} 
+                    title='Гистограмма'
+                  />
               </Stack>
 
-              <Stack direction="row" spacing={2}>
-                {hist[hist.mode].bins && histogramComponent({w:1000, h:250})}
-              </Stack>
+              {/* <CheckboxListSecondary itemStory={roi} setItem={setRoi} submitFunc={upload}/> */}
             </>,
-          ['Статистика']: <>
-            {/* <Stack spacing={2}> */}
-
-            {/* <Stack direction="row" spacing={2}> */}
-            <Stack direction="row" spacing={2}>
-              <SelectStatic
-                menuItems={statMxSelectItems}
-                value={hmap.statMap}
-                // handleChange={e => getStatMx(e.target.value)}
-                handleChange={e => setHmap({...hmap, statMap: e.target.value})}
-                title='Статистика'
-              />
-
-              <SmartInput
-                // width={400}
-                pressChannel={e => e.key == "Enter" && setTrack({ ...tracker, thr: {...tracker.thr, min_val: e.target.value }})}
-                title={'Нижняя граница'}
-                value={tracker.thr.min_val}
-              />
-              <SmartInput
-                // width={400}
-                pressChannel={e => e.key == "Enter" && setTrack({ ...tracker, thr: {...tracker.thr, max_val: e.target.value }})}
-                title={'Верхняя граница'}
-                value={tracker.thr.max_val}
-              />
-            </Stack>
-
-            {/* {trackComponent('boundary')} */}
-            
-            <Stack direction="row" spacing={2}>
-              {sign.spectres.statSpectres !== 0 && linePlotComponent({data: sign.statSpectres, w: 1000, h: 300})}
-            </Stack>
-
-            {/* </Stack> */}
-            
-              <Stack direction="row" spacing={2}>
-                {hmap.mx && hmapComponent({w: 480, h: 400, thr: false, z_data: hmap.mx.channel, shapes: null, mask: false})}
-
-                {sign.statSpectres.length && histogramComponent({spectres: sign.statSpectres, hist_band: hist[hist.mode].statHist, bins_band: hist[hist.mode].statBins, h: 400})}
-              </Stack>
-
-            {/* </Stack> */}
-            </>,
-          ['Предобработка']: <>
-            <HintsStepper steps={stepperContent.preprocessing}/>
-            <Stack direction="row" spacing={2}>
-              {trackComponent('filter')}
-              {trackComponent('thr')}
-            </Stack>
-
-            <Stack direction="row" spacing={2}>
-              {sign.active && linePlotComponent()}
-              <CheckboxListSecondary itemStory={roi} setItem={setRoi} submitFunc={upload}/>
-            </Stack>
-
-            <Stack direction="row" spacing={2}>
-              <SelectStatic 
-                menuItems={smoothMethods}
-                value={sign.filter}
-                handleChange={(e) => setSign({ ...sign, filter: e.target.value })}
-                title="Сглаживание"
-                nullElem={true}
-              />
-              <SmartInput
-                pressChannel={setSmartSpectre}
-                title={'Cпектральная сигнатура'}
-                value={sign.spectres.map((item) => `${item.x},${item.y}`).join(" | ")}
-              />
-            </Stack>
-          </>,
           ['Совмещение']: <>
             <HintsStepper steps={stepperContent.tir}/>
             <Stack direction="row" spacing={2}>
@@ -1049,22 +1314,6 @@ console.log(rgbTrack)
               
           </>,
 
-          ['ML кластеризация']: <>
-            <HintsStepper steps={stepperContent.cluster}/>
-            <Stack direction="row" spacing={2}>
-              <SelectStatic 
-                menuItems={clusterContent} 
-                value={ml.method}
-                handleChange={e => setML({...ml, method: e.target.value})} 
-                title='Кластеризация'
-              />
-              <SmartInput pressChannel={startClasterization} defaultValue='5' title='Количество классов'/>
-            </Stack>
-            <Stack direction="row" spacing={2}>
-              {ml.segmentation && hmapComponent({w: 450, h: 400, thr: false, z_data: ml.segmentation, func: null, shapes: null, mask: false})}
-              {ml.bins && histogramComponent({hist_band: ml.hist, bins_band: ml.bins})}
-            </Stack>
-          </>,
           ['Относительный индекс']: <>
             <HintsStepper steps={stepperContent.spectral}/>
             <Stack direction="row" spacing={2}>
@@ -1243,7 +1492,13 @@ console.log(rgbTrack)
         }}/>
 
       </Stack>
-      
+        <MouseTooltip
+          visible={tooltip.visible}
+          offsetX={15}
+          offsetY={10}
+        >
+          <span style={{backgroundColor: 'white', padding: 5}}>{tooltip.text}</span>
+        </MouseTooltip>
     </div>
   )
 }

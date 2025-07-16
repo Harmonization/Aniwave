@@ -65,7 +65,7 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
     {
       color: 'primary',
       sx: fabStyle,
-      icon: <AddIcon />,
+      icon: <SaveIcon />,
       label: 'Add',
     },
     {
@@ -107,7 +107,7 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
     <Box
       sx={{
         bgcolor: 'background.paper',
-        width: 1050,
+        width: '100%',
         position: 'relative',
         minHeight: 200,
       }}
@@ -154,7 +154,9 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
       <TabPanel value={value} index={7} dir={theme.direction}>
         Item Three
       </TabPanel> */}
-      {fabs.map((fab, index) => (
+
+
+      {/* {fabs.map((fab, index) => (
         <Zoom
           key={fab.color}
           in={value === index}
@@ -168,7 +170,7 @@ export default function ContentTabs({value, setValue, content_obj, buttonsFunc})
             {fab.icon}
           </Fab>
         </Zoom>
-      ))}
+      ))} */}
       
     </Box>
   );

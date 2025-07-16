@@ -21,8 +21,10 @@
     "plotly.js": "^2.33.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-indiana-drag-scroll": "^2.2.1",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^6.23.1",
+    "react-sticky-mouse-tooltip": "^0.0.1",
     "react-swipeable-views": "^0.14.0",
     "socket.io-client": "^4.7.5",
     "xlsx": "^0.18.5"
