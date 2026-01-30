@@ -12,7 +12,7 @@ import ThreeDRotationIcon from '@mui/icons-material/ThreeDRotation';
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 
-export default function IndexField({menuComponent, defaultValue='', pressEnter, buttonClear, button3d, story, derivButton, backgButton, component1, component2, component3, component4, component5, buttonClickMode}) {
+export default function IndexField({menuComponent, defaultValue='', pressEnter, buttonClear, button3d, options, component1, component2, component3, component4, component5, buttonClickMode, textTip='', label='HSI индекс', colorLabel="#1E90FF"}) {
   return (
     <Paper
       sx={{ p: '2px 4px', display: 'flex', alignItems: 'center'}}
@@ -27,12 +27,14 @@ export default function IndexField({menuComponent, defaultValue='', pressEnter, 
         freeSolo
         // id={id}
         disableClearable
-        options={story}
+        // options={story}
+        options={options}
+        groupBy={(option) => option.group}
         // style={{ width: width, margin: margin }}
         renderInput={(params) => (
           <TextField
             {...params}
-            label={"HSI индекс"}
+            label={label}
             InputProps={{
               ...params.InputProps,
               type: "search",
@@ -46,19 +48,32 @@ export default function IndexField({menuComponent, defaultValue='', pressEnter, 
                 // Class for the border around the input field
                 "& .MuiOutlinedInput-notchedOutline": {
                   borderColor: "#FFFFFF",
-                  borderWidth: "2px",
+                  borderWidth: "4px", // при 2px видно border 
                 },
               },
               // Class for the label of the input field
               "& .MuiInputLabel-outlined": {
-                color: "#1E90FF",
+                color: colorLabel,
                 fontWeight: "bold",
+                fontSize: 28
               },
+              '& .MuiAutocomplete-input': {
+                // color: "#1E90FF",
+                fontWeight: "bold",
+                fontSize: 20
+              }
             }}
           />
         )}
-      />
-          
+        />
+      {textTip && <div className='main-textarea-indicator' style={{
+        fontWeight: 'bold', 
+        color: 'rgb(232, 27, 106)', 
+        fontSize: '28px',
+        position: 'absolute',
+        right: '50%',
+        top: 10
+        }}>{textTip}</div>}
       {/* <InputBase
         defaultValue={defaultValue}
         onKeyDown={pressEnter}
@@ -74,10 +89,10 @@ export default function IndexField({menuComponent, defaultValue='', pressEnter, 
       <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={button3d}>
         <ThreeDRotationIcon />
       </IconButton> */}
-      <Divider sx={{ height: 28, m: 0.5 }} orientation="vertical" />
+      {/* <Divider sx={{ height: 28, m: 0.5 }} orientation="vertical" />
       <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={derivButton}>
         <MultilineChartIcon />
-      </IconButton>
+      </IconButton> */}
       {/* <IconButton color="primary" sx={{ p: '10px' }} aria-label="directions" onClick={backgButton}>
         <HideImageIcon />
       </IconButton> */}
@@ -86,11 +101,11 @@ export default function IndexField({menuComponent, defaultValue='', pressEnter, 
         <HideImageIcon />
       </IconButton> */}
       {buttonClickMode}
-      {component1}
+      {/* {component1} */}
       {component2}
       {component3}
       {component4}
-      {component5}
+      {/* {component5} */}
     </Paper>
   );
 }

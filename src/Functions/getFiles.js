@@ -257,17 +257,15 @@ export const getFiles = async () => {
     const settings = {
         "channel": "b0",
         "index_story": [
+            "b0",
             "(nm757 - nm607) / (nm757 + nm607)",
             "(b120 - b70) / (b120 + b70)",
             "nm397",
             "nm406 - b10 / nm1004 + 1",
             " b10 / b0",
             "b70",
-            "b120",
             "b150 + sin(b140)",
             "b30 * b60",
-            "b203",
-            "b100 - b40"
         ],
         "rois_story": [
             "x0=120, x1=180, y0=10, y1=150",

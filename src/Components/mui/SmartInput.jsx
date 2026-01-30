@@ -20,6 +20,18 @@ export default function SmartInput({ pressChannel, defaultValue='', value=null, 
             ...params.InputProps,
             type,
           }}
+          sx={{
+              "& .MuiInputLabel-outlined": {
+                color: "#1E90FF",
+                fontWeight: "bold",
+                fontSize: 25
+              },
+              '& .MuiAutocomplete-input': {
+                // color: "#1E90FF",
+                fontWeight: "bold",
+                fontSize: 20
+              }
+            }}
         />
       )}
     />

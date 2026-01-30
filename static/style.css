@@ -117,7 +117,7 @@ div[class$='MuiResponsiveChart-container'] {
     position: relative;
     align-self: center;
     aspect-ratio: 1;
-    margin-bottom: 70px;
+    margin-bottom: 140px;
 }
 
 /* @media screen and (width < 950px) {

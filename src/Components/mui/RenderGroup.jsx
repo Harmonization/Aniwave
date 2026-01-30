@@ -8,6 +8,7 @@ export default function RenderGroup({options, pressEnter}) {
 
   return (
     <Autocomplete
+      className='add-image-textarea'
       options={options}
       onKeyDown={pressEnter}
       freeSolo
