@@ -523,7 +523,7 @@ function Menu() {
     if (hmap.nameHsi) getRgb()
 
     // Контекстное меню для графиков
-    document.getElementsByClassName('histAndPlot')[0].addEventListener('contextmenu', e => {
+    document.getElementById('histAndPlot').addEventListener('contextmenu', e => {
       e.preventDefault()
       
       const x = e.clientX - document.getElementsByClassName('card')[0].getBoundingClientRect().left
@@ -1397,7 +1397,7 @@ function Menu() {
       </Stack>
 
         <Stack direction="row" spacing={2} >
-          <div className='histAndPlot'>
+          <div className='histAndPlot' id='histAndPlot'>
             {sign.spectres.length !== 0 && linePlotComponent({w: 1000, h: 450})}
             {hist[hist.mode].bins && histogramComponent({w:1000, h:450, xlabel: {indx: 'Гистограмма индекса', sign: 'Статистика спектров', indx_info: 'Статистика индекса'}[hist.mode]})}
           </div>
