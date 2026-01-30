@@ -1396,9 +1396,11 @@ function Menu() {
 
       </Stack>
 
-        <Stack direction="row" spacing={2} className='histAndPlot'>
-          {sign.spectres.length !== 0 && linePlotComponent({w: 1000, h: 450})}
-          {hist[hist.mode].bins && histogramComponent({w:1000, h:450, xlabel: {indx: 'Гистограмма индекса', sign: 'Статистика спектров', indx_info: 'Статистика индекса'}[hist.mode]})}
+        <Stack direction="row" spacing={2} >
+          <div className='histAndPlot'>
+            {sign.spectres.length !== 0 && linePlotComponent({w: 1000, h: 450})}
+            {hist[hist.mode].bins && histogramComponent({w:1000, h:450, xlabel: {indx: 'Гистограмма индекса', sign: 'Статистика спектров', indx_info: 'Статистика индекса'}[hist.mode]})}
+          </div>
         </Stack>
 
         <Stack direction="row" spacing={2}>
